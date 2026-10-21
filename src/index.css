@@ -1,0 +1,45 @@
+@import 'tailwindcss';
+
+@theme {
+  --animate-flash: flash 350ms ease-out forwards;
+  @keyframes flash {
+    from {
+      opacity: 0.85;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    background: var(--color-slate-900);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    overscroll-behavior-y: none;
+  }
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@utility btn {
+  @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 py-3 font-semibold transition select-none active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40;
+}
+@utility btn-primary {
+  @apply btn bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/20 active:bg-cyan-300;
+}
+@utility btn-secondary {
+  @apply btn bg-slate-800 text-slate-100 ring-1 ring-white/10 active:bg-slate-700;
+}
+@utility btn-ghost {
+  @apply inline-flex min-h-10 items-center justify-center rounded-lg px-3 text-slate-300 active:bg-white/10;
+}
+@utility icon-btn {
+  @apply inline-flex size-11 shrink-0 items-center justify-center rounded-full text-current transition active:bg-white/15 disabled:opacity-40;
+}

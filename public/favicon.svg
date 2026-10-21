@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0f172a"/>
+  <!-- scan corner brackets -->
+  <g fill="none" stroke="#22d3ee" stroke-width="28" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M88 168V112a24 24 0 0 1 24-24h56"/>
+    <path d="M344 88h56a24 24 0 0 1 24 24v56"/>
+    <path d="M424 344v56a24 24 0 0 1-24 24h-56"/>
+    <path d="M168 424h-56a24 24 0 0 1-24-24v-56"/>
+  </g>
+  <!-- document -->
+  <path d="M176 136h112l64 64v160a16 16 0 0 1-16 16H176a16 16 0 0 1-16-16V152a16 16 0 0 1 16-16z" fill="#f8fafc"/>
+  <path d="M288 136v48a16 16 0 0 0 16 16h48z" fill="#cbd5e1"/>
+  <rect x="196" y="236" width="120" height="16" rx="8" fill="#64748b"/>
+  <rect x="196" y="276" width="120" height="16" rx="8" fill="#64748b"/>
+  <rect x="196" y="316" width="80" height="16" rx="8" fill="#64748b"/>
+</svg>

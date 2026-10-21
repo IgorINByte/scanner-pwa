@@ -1,0 +1,13 @@
+node_modules
+dist
+dev-dist
+public/vendor
+*.local
+.vite
+
+# certificates
+*.pem
+*.key
+*.crt
+*.cert
+*.tsbuildinfo
