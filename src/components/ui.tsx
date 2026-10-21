@@ -1,6 +1,5 @@
 import { useRef, useSyncExternalStore, type ReactNode } from 'react'
 import { getCvStatus, loadOpenCv, subscribeCvStatus } from '../lib/opencv'
-import { BackIcon } from './Icons'
 
 export function Spinner({ className = 'size-6' }: { className?: string }) {
   return (
@@ -9,6 +8,23 @@ export function Spinner({ className = 'size-6' }: { className?: string }) {
       role="status"
       aria-label="Loading"
     />
+  )
+}
+
+export function ProgressBar({ value, label }: { value: number; label?: string }) {
+  return (
+    <div className="w-full">
+      {label && <div className="mb-1.5 text-sm text-slate-300">{label}</div>}
+      <div
+        className="h-2 overflow-hidden rounded-full bg-slate-800"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(value * 100)}
+      >
+        <div className="h-full rounded-full bg-cyan-400 transition-[width]" style={{ width: `${Math.max(2, value * 100)}%` }} />
+      </div>
+    </div>
   )
 }
 
@@ -30,7 +46,7 @@ export function CvBanner() {
           </>
         ) : (
           <>
-            <span>Couldn’t load scanner engine.</span>
+            <span>Couldn’t load the edge detector.</span>
             <button className="font-semibold text-cyan-400" onClick={() => void loadOpenCv().catch(() => {})}>
               Retry
             </button>
@@ -41,50 +57,28 @@ export function CvBanner() {
   )
 }
 
-export function Header({
-  title,
-  onBack,
-  right,
-}: {
-  title: ReactNode
-  onBack?: () => void
-  right?: ReactNode
-}) {
-  return (
-    <header className="sticky top-0 z-30 flex h-[calc(env(safe-area-inset-top)+3.5rem)] items-end bg-slate-900/90 px-2 pb-1 backdrop-blur">
-      <div className="flex h-12 w-full items-center gap-1">
-        {onBack ? (
-          <button className="icon-btn" onClick={onBack} aria-label="Back">
-            <BackIcon />
-          </button>
-        ) : (
-          <span className="w-2" />
-        )}
-        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">{title}</h1>
-        {right}
-      </div>
-    </header>
-  )
-}
-
 export function Segmented<T extends string>({
   value,
   options,
   onChange,
+  label,
 }: {
   value: T
-  options: { id: T; label: string }[]
+  options: { id: T; label: string; disabled?: boolean }[]
   onChange: (v: T) => void
+  label?: string
 }) {
   return (
-    <div className="grid auto-cols-fr grid-flow-col gap-1 rounded-xl bg-slate-800 p-1" role="radiogroup">
+    <div className="grid auto-cols-fr grid-flow-col gap-1 rounded-xl bg-slate-800 p-1" role="radiogroup" aria-label={label}>
       {options.map((o) => (
         <button
           key={o.id}
+          type="button"
           role="radio"
           aria-checked={value === o.id}
+          disabled={o.disabled}
           onClick={() => onChange(o.id)}
-          className={`rounded-lg px-2 py-2 text-sm font-medium transition ${
+          className={`rounded-lg px-2 py-2 text-sm font-medium transition disabled:opacity-40 ${
             value === o.id ? 'bg-slate-100 text-slate-900 shadow' : 'text-slate-300 active:bg-slate-700'
           }`}
         >
@@ -95,14 +89,64 @@ export function Segmented<T extends string>({
   )
 }
 
+export function Slider({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+  format = (v) => String(v),
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  onChange: (v: number) => void
+  format?: (v: number) => string
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 flex justify-between text-sm">
+        <span className="text-slate-300">{label}</span>
+        <span className="tabular-nums text-slate-400">{format(value)}</span>
+      </span>
+      <input
+        type="range"
+        className="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        onDoubleClick={() => onChange(0)}
+      />
+    </label>
+  )
+}
+
+export function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: ReactNode; hint?: ReactNode }) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 py-1.5">
+      <input type="checkbox" className="peer sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="relative mt-0.5 inline-flex h-6 w-10 shrink-0 rounded-full bg-slate-700 transition peer-checked:bg-cyan-500 peer-focus-visible:ring-2 peer-focus-visible:ring-cyan-300 after:absolute after:top-0.5 after:left-0.5 after:size-5 after:rounded-full after:bg-white after:transition peer-checked:after:translate-x-4" />
+      <span className="text-sm">
+        <span className="text-slate-100">{label}</span>
+        {hint && <span className="block text-xs text-slate-400">{hint}</span>}
+      </span>
+    </label>
+  )
+}
+
 /** Hidden <input type=file>; call open() from a click handler. */
-export function useFilePicker(onFiles: (files: File[]) => void, opts: { multiple?: boolean; capture?: boolean } = {}) {
+export function useFilePicker(
+  onFiles: (files: File[]) => void,
+  opts: { multiple?: boolean; capture?: boolean; accept?: string } = {},
+) {
   const ref = useRef<HTMLInputElement>(null)
   const input = (
     <input
       ref={ref}
       type="file"
-      accept="image/*"
+      accept={opts.accept ?? 'image/*'}
       className="hidden"
       multiple={opts.multiple}
       {...(opts.capture ? { capture: 'environment' } : {})}
@@ -114,4 +158,8 @@ export function useFilePicker(onFiles: (files: File[]) => void, opts: { multiple
     />
   )
   return { input, open: () => ref.current?.click() }
+}
+
+export function SectionTitle({ children }: { children: ReactNode }) {
+  return <h3 className="mb-2 text-xs font-semibold tracking-wider text-slate-400 uppercase">{children}</h3>
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import type { Corners, Point } from '../types'
 
 interface Props {
@@ -7,6 +7,8 @@ interface Props {
   height: number
   corners: Corners
   onChange: (c: Corners) => void
+  /** Called once when a drag ends, with the final corners. */
+  onCommit?: (c: Corners) => void
 }
 
 const PAD = 20 // keeps handles on the image edge reachable
@@ -28,11 +30,19 @@ export function isConvex(c: Corners) {
   return true
 }
 
-export default function CornerEditor({ src, width, height, corners, onChange }: Props) {
+export default function CornerEditor({ src, width, height, corners, onChange, onCommit }: Props) {
   const boxRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const [box, setBox] = useState({ w: 0, h: 0 })
-  const [drag, setDrag] = useState<{ index: number; offset: Point } | null>(null)
+  const [drag, setDragState] = useState<{ index: number; offset: Point } | null>(null)
+  // Pointer events can arrive faster than React re-renders, so handlers read refs, not state.
+  const dragRef = useRef<{ index: number; offset: Point } | null>(null)
+  const latest = useRef(corners)
+  latest.current = corners
+  const setDrag = (d: { index: number; offset: Point } | null) => {
+    dragRef.current = d
+    setDragState(d)
+  }
 
   useEffect(() => {
     const el = boxRef.current!
@@ -68,17 +78,22 @@ export default function CornerEditor({ src, width, height, corners, onChange }: 
   }
 
   const onMove = (e: PointerEvent<SVGSVGElement>) => {
-    if (!drag) return
+    const d = dragRef.current
+    if (!d) return
     const p = toSource(e)
-    const next = [...corners] as Corners
-    next[drag.index] = {
-      x: Math.min(width, Math.max(0, p.x + drag.offset.x)),
-      y: Math.min(height, Math.max(0, p.y + drag.offset.y)),
+    const next = [...latest.current] as Corners
+    next[d.index] = {
+      x: Math.min(width, Math.max(0, p.x + d.offset.x)),
+      y: Math.min(height, Math.max(0, p.y + d.offset.y)),
     }
+    latest.current = next
     onChange(next)
   }
 
-  const onUp = () => setDrag(null)
+  const onUp = () => {
+    if (dragRef.current) onCommit?.(latest.current)
+    setDrag(null)
+  }
 
   const valid = isConvex(corners)
   const poly = corners.map((c) => `${c.x},${c.y}`).join(' ')
@@ -114,6 +129,21 @@ export default function CornerEditor({ src, width, height, corners, onChange }: 
             />
             {corners.map((c, i) => (
               <circle
+                tabIndex={0}
+                role="slider"
+                aria-label={`${['Top-left', 'Top-right', 'Bottom-right', 'Bottom-left'][i]} corner`}
+                aria-valuetext={`${Math.round(c.x)}, ${Math.round(c.y)}`}
+                onKeyDown={(e: KeyboardEvent) => {
+                  const step = (e.shiftKey ? 20 : 4) * k
+                  const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key]
+                  if (!d) return
+                  e.preventDefault()
+                  const next = [...corners] as Corners
+                  next[i] = { x: Math.min(width, Math.max(0, c.x + d[0])), y: Math.min(height, Math.max(0, c.y + d[1])) }
+                  onChange(next)
+                  onCommit?.(next)
+                }}
+                className="outline-none focus-visible:stroke-white"
                 key={i}
                 cx={c.x}
                 cy={c.y}

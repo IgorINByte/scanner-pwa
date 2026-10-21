@@ -38,9 +38,23 @@ export default defineConfig(({ command, isPreview }) => ({
         ],
       },
       workbox: {
-        // OpenCV.js (~11 MB) is precached too, so scanning works fully offline after install.
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
+        // The app shell and OpenCV.js (~11 MB) are precached, so scanning works fully offline after install.
+        globPatterns: ['**/*.{js,mjs,css,html,svg,png,ico,webmanifest}'],
+        // OCR engine/models, fonts and pdf.js data are only downloaded when first used,
+        // then kept in a runtime cache for offline use.
+        globIgnores: ['vendor/tesseract/**', 'vendor/tessdata/**', 'vendor/fonts/**', 'vendor/pdfjs/**'],
         maximumFileSizeToCacheInBytes: 16 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => /\/vendor\/(tesseract|tessdata|fonts|pdfjs)\//.test(url.pathname),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'on-demand-assets',
+              expiration: { maxEntries: 400 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
     }),
   ],

@@ -1,77 +1,117 @@
-import type { Page } from '../types'
-import { isFullFrame, scaleCorners } from './geometry'
-import { ctx2d, decodeImage, drawScaled, MAX_SIDE, releaseCanvas, rotateCanvas } from './image'
-import { loadOpenCv } from './opencv'
-import { documentFilter, warpPerspective } from './scan'
+// Renders any page (scan or PDF) to an image. Scan pages go through the worker pipeline;
+// PDF pages are rasterised with pdf.js only when an image is actually needed.
+import { NO_ADJUSTMENTS, type Page, type ScanPage, type ScanParams, type Watermark } from '../types'
+import { drawAnnotationsOnCanvas, drawWatermarkOnCanvas } from './annotations/canvas'
+import { outputSize } from './imaging/perspective'
+import { isFullFrame } from './imaging/pipeline'
+import { renderScanImage } from './imaging/processor'
+import { getCachedPdf, renderPdfPageToCanvas } from './pdf/pdfjs'
+import { repository } from './storage/repository'
 
-/** Key that changes whenever the rendered output of a page would change. */
-export const pageKey = (p: Page) => JSON.stringify([p.corners, p.filter, p.rotation])
-
-function grayscale(canvas: HTMLCanvasElement) {
-  const ctx = ctx2d(canvas)
-  const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  const d = img.data
-  for (let i = 0; i < d.length; i += 4) {
-    const y = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]
-    d[i] = d[i + 1] = d[i + 2] = y
-  }
-  ctx.putImageData(img, 0, 0)
+export interface RenderOptions {
+  maxSide: number
+  type?: 'image/jpeg' | 'image/png'
+  quality?: number
+  /** Ignore filters/adjustments (used for "before" comparison). */
+  unfiltered?: boolean
 }
 
-/** Auto-levels (1%/99% luminance stretch) plus a mild saturation boost. */
-function enhance(canvas: HTMLCanvasElement) {
-  const ctx = ctx2d(canvas)
-  const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  const d = img.data
-  const hist = new Uint32Array(256)
-  for (let i = 0; i < d.length; i += 4) hist[(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) | 0]++
-  const total = d.length / 4
-  let lo = 0
-  let hi = 255
-  for (let acc = 0; lo < 255 && (acc += hist[lo]) < total * 0.01; lo++);
-  for (let acc = 0; hi > 0 && (acc += hist[hi]) < total * 0.01; hi--);
-  if (hi - lo < 32) {
-    lo = 0
-    hi = 255
-  }
-  const lut = new Uint8ClampedArray(256)
-  for (let v = 0; v < 256; v++) lut[v] = ((v - lo) * 255) / (hi - lo)
-  const sat = 1.25
-  for (let i = 0; i < d.length; i += 4) {
-    const r = lut[d[i]]
-    const g = lut[d[i + 1]]
-    const b = lut[d[i + 2]]
-    const y = 0.299 * r + 0.587 * g + 0.114 * b
-    d[i] = y + (r - y) * sat
-    d[i + 1] = y + (g - y) * sat
-    d[i + 2] = y + (b - y) * sat
-  }
-  ctx.putImageData(img, 0, 0)
+export interface RenderedImage {
+  blob: Blob
+  width: number
+  height: number
 }
 
-/**
- * Renders a page with crop, filter and rotation applied.
- * `maxSide` limits the output size (used for thumbnails, previews and export quality).
- */
-export async function renderPage(page: Page, maxSide = MAX_SIDE): Promise<HTMLCanvasElement> {
-  const bitmap = await decodeImage(page.source)
-  let canvas = drawScaled(bitmap, maxSide)
-  if (bitmap instanceof ImageBitmap) bitmap.close()
-  const scale = canvas.width / page.width
+/** Changes whenever the rendered pixels of a page would change. */
+export function pageKey(p: Page): string {
+  return p.kind === 'scan'
+    ? JSON.stringify(['s', p.sourceId, p.corners, p.paper, p.filter, p.adjust, p.rotation])
+    : JSON.stringify(['p', p.sourceId, p.pageIndex, p.rotation])
+}
 
-  const needsCv =
-    page.filter === 'document' || (page.corners && !isFullFrame(page.corners, page.width, page.height))
-  if (needsCv) await loadOpenCv()
-
-  if (page.corners && !isFullFrame(page.corners, page.width, page.height)) {
-    const warped = warpPerspective(canvas, scaleCorners(page.corners, scale), maxSide)
-    releaseCanvas(canvas)
-    canvas = warped
+export function scanParams(p: ScanPage, unfiltered = false): ScanParams {
+  return {
+    corners: p.corners,
+    paper: p.paper,
+    filter: unfiltered ? 'original' : p.filter,
+    adjust: unfiltered ? NO_ADJUSTMENTS : p.adjust,
+    rotation: p.rotation,
   }
+}
 
-  if (page.filter === 'grayscale') grayscale(canvas)
-  else if (page.filter === 'enhanced') enhance(canvas)
-  else if (page.filter === 'document') documentFilter(canvas)
+export const totalRotation = (p: Page) => ((p.kind === 'pdf' ? p.baseRotation : 0) + p.rotation) % 360
 
-  return rotateCanvas(canvas, page.rotation)
+/** Aspect-correct size of the page as displayed (after crop and rotation), in arbitrary units. */
+export function displaySize(p: Page): { width: number; height: number } {
+  let w: number
+  let h: number
+  if (p.kind === 'scan') {
+    const s =
+      p.corners && !isFullFrame(p.corners, p.width, p.height)
+        ? outputSize(p.corners, p.paper, Infinity)
+        : { width: p.width, height: p.height }
+    w = s.width
+    h = s.height
+  } else {
+    w = p.width
+    h = p.height
+  }
+  return totalRotation(p) % 180 ? { width: h, height: w } : { width: w, height: h }
+}
+
+function canvasToBlob(c: HTMLCanvasElement, type: string, quality: number) {
+  return new Promise<Blob>((resolve, reject) =>
+    c.toBlob((b) => (b ? resolve(b) : reject(new Error('Image encoding failed'))), type, quality),
+  )
+}
+
+export async function renderPdfPageCanvas(page: Extract<Page, { kind: 'pdf' }>, maxSide: number) {
+  const doc = await getCachedPdf(page.sourceId, () => repository.getBlob(page.sourceId))
+  return renderPdfPageToCanvas(doc, page.pageIndex, totalRotation(page), maxSide)
+}
+
+export async function renderPage(page: Page, opts: RenderOptions): Promise<RenderedImage> {
+  const type = opts.type ?? 'image/jpeg'
+  const quality = opts.quality ?? 0.85
+  if (page.kind === 'scan') {
+    return renderScanImage({
+      blob: await repository.getBlob(page.sourceId),
+      params: scanParams(page, opts.unfiltered),
+      srcWidth: page.width,
+      srcHeight: page.height,
+      maxSide: opts.maxSide,
+      type,
+      quality,
+    })
+  }
+  const canvas = await renderPdfPageCanvas(page, opts.maxSide)
+  const blob = await canvasToBlob(canvas, type, quality)
+  const result = { blob, width: canvas.width, height: canvas.height }
+  canvas.width = canvas.height = 0
+  return result
+}
+
+/** Renders a page with its annotations and the watermark burned in (image export). */
+export async function renderPageFlattened(
+  page: Page,
+  watermark: Watermark | null,
+  opts: RenderOptions,
+): Promise<RenderedImage> {
+  const base = await renderPage(page, { ...opts, type: 'image/png' })
+  if (!page.annotations.length && !watermark?.enabled) {
+    if ((opts.type ?? 'image/jpeg') === 'image/png') return base
+  }
+  const bitmap = await createImageBitmap(base.blob)
+  const canvas = document.createElement('canvas')
+  canvas.width = bitmap.width
+  canvas.height = bitmap.height
+  const ctx = canvas.getContext('2d')!
+  ctx.drawImage(bitmap, 0, 0)
+  bitmap.close()
+  await drawAnnotationsOnCanvas(ctx, page.annotations, canvas.width, canvas.height)
+  if (watermark?.enabled) drawWatermarkOnCanvas(ctx, watermark, canvas.width, canvas.height)
+  const blob = await canvasToBlob(canvas, opts.type ?? 'image/jpeg', opts.quality ?? 0.9)
+  const result = { blob, width: canvas.width, height: canvas.height }
+  canvas.width = canvas.height = 0
+  return result
 }
