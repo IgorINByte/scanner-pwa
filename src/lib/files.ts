@@ -1,13 +1,14 @@
 // Input validation: accepted formats are checked by MIME type / extension *and* by the
 // file's magic bytes, so a renamed or corrupted file is rejected with a clear message.
+import { isHeif } from './imaging/image-header'
 
-export const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp'
+export const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif'
 export const PDF_ACCEPT = 'application/pdf,.pdf'
 
 export const MAX_IMAGE_BYTES = 40 * 1024 * 1024
 export const MAX_PDF_BYTES = 200 * 1024 * 1024
 
-export type FileKind = 'jpeg' | 'png' | 'webp' | 'pdf'
+export type FileKind = 'jpeg' | 'png' | 'webp' | 'heic' | 'pdf'
 
 export class FileValidationError extends Error {
   constructor(
@@ -25,6 +26,7 @@ export function sniff(bytes: Uint8Array): FileKind | null {
   if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'png'
   if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50)
     return 'webp'
+  if (isHeif(b)) return 'heic'
   // %PDF may be preceded by junk bytes; the spec allows up to 1024.
   for (let i = 0; i < Math.min(b.length - 4, 1024); i++) {
     if (b[i] === 0x25 && b[i + 1] === 0x50 && b[i + 2] === 0x44 && b[i + 3] === 0x46) return 'pdf'
@@ -32,7 +34,7 @@ export function sniff(bytes: Uint8Array): FileKind | null {
   return null
 }
 
-const formatList = 'JPG, PNG, WebP or PDF'
+const formatList = 'JPG, PNG, WebP, HEIC or PDF'
 
 export async function validateFile(file: File, expect: 'image' | 'pdf' | 'any'): Promise<FileKind> {
   if (file.size === 0) throw new FileValidationError(file.name, 'The file is empty.')

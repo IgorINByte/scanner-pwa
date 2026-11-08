@@ -11,3 +11,8 @@ public/vendor
 *.crt
 *.cert
 *.tsbuildinfo
+
+# Test photos may contain personal data (the repo is public); only labels are committed.
+test-images/*
+!test-images/ground-truth.json
+!test-images/README.md

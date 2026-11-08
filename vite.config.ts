@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import { VitePWA } from 'vite-plugin-pwa'
+import { harnessPlugin } from './scripts/harness-plugin.ts'
 
 // GitHub Pages serves the app from https://<user>.github.io/scanner-pwa/
 const BASE = '/scanner-pwa/'
@@ -14,7 +15,10 @@ export default defineConfig(({ command, isPreview }) => ({
     react(),
     tailwindcss(),
     // Self-signed HTTPS for the dev server so the camera works when testing on a phone over LAN.
-    command === 'serve' && basicSsl(),
+    // NO_HTTPS=1 serves plain http (e.g. for the harness on localhost, where no cert is needed).
+    command === 'serve' && !process.env.NO_HTTPS && basicSsl(),
+    // Detection test harness at /harness.html (dev only).
+    harnessPlugin(import.meta.dirname),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon-180x180.png'],
@@ -42,11 +46,13 @@ export default defineConfig(({ command, isPreview }) => ({
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,ico,webmanifest}'],
         // OCR engine/models, fonts and pdf.js data are only downloaded when first used,
         // then kept in a runtime cache for offline use.
-        globIgnores: ['vendor/tesseract/**', 'vendor/tessdata/**', 'vendor/fonts/**', 'vendor/pdfjs/**'],
+        // The HEIC decoder (libheif, ~2 MB) is only needed for HEIC files in browsers that cannot decode them.
+        globIgnores: ['vendor/tesseract/**', 'vendor/tessdata/**', 'vendor/fonts/**', 'vendor/pdfjs/**', 'assets/wasm-bundle-*.js'],
         maximumFileSizeToCacheInBytes: 16 * 1024 * 1024,
         runtimeCaching: [
           {
-            urlPattern: ({ url }) => /\/vendor\/(tesseract|tessdata|fonts|pdfjs)\//.test(url.pathname),
+            urlPattern: ({ url }) =>
+              /\/vendor\/(tesseract|tessdata|fonts|pdfjs)\//.test(url.pathname) || /\/assets\/wasm-bundle-[^/]+\.js$/.test(url.pathname),
             handler: 'CacheFirst',
             options: {
               cacheName: 'on-demand-assets',

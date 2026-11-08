@@ -1,4 +1,7 @@
-export const MAX_SIDE = 2480
+import { decodeInput, INPUT_MAX_SIDE } from './imaging/decode'
+
+/** Long-edge cap for stored source images. */
+export const MAX_SIDE = INPUT_MAX_SIDE
 
 type Drawable = ImageBitmap | HTMLImageElement | HTMLVideoElement | HTMLCanvasElement
 
@@ -67,9 +70,9 @@ export interface PreparedImage {
   height: number
 }
 
-/** Normalises a captured/imported image: downscale to <= 2480 px and re-encode as JPEG. */
+/** Normalises a captured/imported image: orient, downscale to <= MAX_SIDE and re-encode as JPEG. */
 export async function prepareImage(src: Blob | HTMLVideoElement): Promise<PreparedImage> {
-  const drawable = src instanceof Blob ? await decodeImage(src) : src
+  const drawable = src instanceof Blob ? await decodeInput(src, MAX_SIDE) : src
   const canvas = drawScaled(drawable)
   if (drawable instanceof ImageBitmap) drawable.close()
   const blob = await canvasToBlob(canvas, 'image/jpeg', 0.92)

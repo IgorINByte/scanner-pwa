@@ -10,7 +10,8 @@
     "icons": "pwa-assets-generator",
     "postinstall": "node scripts/copy-vendor.mjs",
     "test": "vitest run",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "bench": "vitest run --config vitest.bench.config.ts"
   },
   "dependencies": {
     "@cantoo/fontkit": "^2.0.12",
@@ -23,6 +24,7 @@
     "@tesseract.js-data/hrv": "^1.0.0",
     "docx": "^9.13.0",
     "idb": "^8.0.4",
+    "libheif-js": "^1.23.5",
     "pdfjs-dist": "^6.4.299",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
@@ -36,6 +38,7 @@
     "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "dejavu-fonts-ttf": "^2.37.3",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",

@@ -1,5 +1,6 @@
 import { useRef, useSyncExternalStore, type ReactNode } from 'react'
-import { getCvStatus, loadOpenCv, subscribeCvStatus } from '../lib/opencv'
+import { getCvStatus, subscribeCvStatus } from '../lib/opencv'
+import { warmupDetector } from '../lib/imaging/detect'
 
 export function Spinner({ className = 'size-6' }: { className?: string }) {
   return (
@@ -47,7 +48,7 @@ export function CvBanner() {
         ) : (
           <>
             <span>Couldn’t load the edge detector.</span>
-            <button className="font-semibold text-cyan-400" onClick={() => void loadOpenCv().catch(() => {})}>
+            <button className="font-semibold text-cyan-400" onClick={warmupDetector}>
               Retry
             </button>
           </>

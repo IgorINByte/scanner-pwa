@@ -126,7 +126,7 @@ interface PageBase {
 
 export interface ScanPage extends PageBase {
   kind: 'scan'
-  /** Source image size in pixels (already downscaled to <= 2480 px). */
+  /** Source image size in pixels (oriented, already downscaled to <= 4500 px). */
   width: number
   height: number
   /** null while auto-detection is still pending. */
