@@ -65,7 +65,8 @@ export function applyHomography(H: number[], x: number, y: number): Point {
 /**
  * Warps the quadrilateral `c` of `src` into a width x height rectangle.
  * Every output pixel is inverse-mapped into the source and sampled bilinearly,
- * so no content along the edges is lost or stretched unevenly.
+ * so no content along the edges is lost or stretched unevenly. Points that map outside
+ * the source are white.
  */
 export function warpPerspective(src: Img, c: Corners, width: number, height: number): Img {
   const out = createImg(width, height)
@@ -95,6 +96,12 @@ export function warpPerspective(src: Img, c: Corners, width: number, height: num
       nx += H[0]
       ny += H[3]
       nd += H[6]
+      // Corners may lie outside the photo: that part of the page is filled with white.
+      if (fx < -0.5 || fy < -0.5 || fx > sw - 0.5 || fy > sh - 0.5) {
+        o[i] = o[i + 1] = o[i + 2] = o[i + 3] = 255
+        i += 4
+        continue
+      }
       if (fx < 0) fx = 0
       else if (fx > sw - 1) fx = sw - 1
       if (fy < 0) fy = 0

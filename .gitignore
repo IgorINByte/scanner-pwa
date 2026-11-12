@@ -16,3 +16,7 @@ public/vendor
 test-images/*
 !test-images/ground-truth.json
 !test-images/README.md
+
+# Detection fixtures (cases A/B/C): photos stay local for the same reason.
+test/fixtures/*/*
+!test/fixtures/*/.gitkeep

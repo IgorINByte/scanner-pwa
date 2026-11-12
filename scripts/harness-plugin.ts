@@ -4,6 +4,7 @@
 //   GET  /__harness/ground-truth  test-images/ground-truth.json (or an empty set)
 //   POST /__harness/ground-truth  overwrite ground-truth.json
 //   POST /__harness/results       append a markdown section to docs/detection-benchmark.md
+//   GET  /__harness/fixtures      image files per folder of test/fixtures/ (/fixtures.html)
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import type { IncomingMessage } from 'node:http'
 import { join } from 'node:path'
@@ -36,6 +37,11 @@ export function harnessPlugin(root: string): Plugin {
           res.end(JSON.stringify(body))
         }
         try {
+          if (req.method === 'GET' && req.url === '/fixtures') {
+            const fx = join(root, 'test', 'fixtures')
+            const folders = existsSync(fx) ? readdirSync(fx, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort() : []
+            return send(200, Object.fromEntries(folders.map((c) => [c, readdirSync(join(fx, c)).filter((f) => IMAGE_RE.test(f)).sort()])))
+          }
           if (req.method === 'GET' && req.url === '/images') {
             return send(200, existsSync(dir) ? readdirSync(dir).filter((f) => IMAGE_RE.test(f)).sort() : [])
           }

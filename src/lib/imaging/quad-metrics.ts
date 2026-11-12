@@ -53,6 +53,22 @@ export function quadIoU(a: Corners, b: Corners): number {
   return union > 0 ? inter / union : 0
 }
 
+/** IoU of two polygons after clipping both to the image rectangle. */
+export function clippedIoU(a: Point[], b: Point[], width: number, height: number): number {
+  const frame = [
+    { x: 0, y: 0 },
+    { x: width, y: 0 },
+    { x: width, y: height },
+    { x: 0, y: height },
+  ]
+  const ca = clipPolygon(a, frame)
+  const cb = clipPolygon(b, frame)
+  if (ca.length < 3 || cb.length < 3) return 0
+  const inter = polygonArea(clipPolygon(ca, cb))
+  const union = polygonArea(ca) + polygonArea(cb) - inter
+  return union > 0 ? inter / union : 0
+}
+
 /** Largest corner distance, as a fraction of the image diagonal. */
 export function maxCornerError(a: Corners, b: Corners, width: number, height: number): number {
   const diag = Math.hypot(width, height)

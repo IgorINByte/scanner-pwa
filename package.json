@@ -28,6 +28,7 @@
     "pdfjs-dist": "^6.4.299",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "scanic": "^1.7.1",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {

@@ -1,7 +1,8 @@
 /// <reference lib="webworker" />
-// Document detection worker: owns the OpenCV.js instance so the ~11 MB module, its
-// initialisation and all Mat work stay off the UI thread.
-import { decodeForDetection, detectBitmap } from '../lib/imaging/detect-run'
+// Document detection worker: owns the ML model (scanic) and the OpenCV.js instance, so
+// model inference, the ~11 MB OpenCV module and all pixel work stay off the UI thread.
+import { decodeForDetection, detectBitmap, type DetectOptions } from '../lib/imaging/detect-run'
+import { initModel } from '../lib/imaging/ml-detect'
 import { OPENCV_URL, whenCvReady, type CV } from '../lib/opencv'
 
 export type DetectWorkerRequest =
@@ -14,6 +15,8 @@ export type DetectWorkerRequest =
       srcWidth: number
       srcHeight: number
       side?: number
+      /** Test hooks (fixture page). */
+      opts?: DetectOptions
     }
 
 export type DetectWorkerResponse =
@@ -52,14 +55,14 @@ const createCanvas = (w: number, h: number) => new OffscreenCanvas(w, h)
 self.onmessage = async (e: MessageEvent<DetectWorkerRequest>) => {
   const msg = e.data
   if (msg.type === 'load') {
+    void initModel().catch((e) => console.warn('ML detector failed to load', e))
     void loadCv().catch(() => {})
     return
   }
   let bitmap: ImageBitmap | null = null
   try {
-    const cv = await loadCv()
-    bitmap = msg.source instanceof Blob ? await decodeForDetection(msg.source, msg.srcWidth, msg.srcHeight, msg.side) : msg.source
-    const result = await detectBitmap(cv, bitmap, msg.srcWidth, msg.srcHeight, createCanvas, msg.side)
+    bitmap = msg.source instanceof Blob ? await decodeForDetection(msg.source, msg.srcWidth, msg.srcHeight) : msg.source
+    const result = await detectBitmap(loadCv, bitmap, msg.srcWidth, msg.srcHeight, createCanvas, msg.side, msg.opts)
     post({ type: 'result', id: msg.id, result })
   } catch (err) {
     post({ type: 'error', id: msg.id, error: err instanceof Error ? err.message : String(err) })

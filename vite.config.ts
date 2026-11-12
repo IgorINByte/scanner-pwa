@@ -43,7 +43,8 @@ export default defineConfig(({ command, isPreview }) => ({
       },
       workbox: {
         // The app shell and OpenCV.js (~11 MB) are precached, so scanning works fully offline after install.
-        globPatterns: ['**/*.{js,mjs,css,html,svg,png,ico,webmanifest}'],
+        // The ML corner model and its ONNX Runtime wasm (~3.4 MB) are precached too.
+        globPatterns: ['**/*.{js,mjs,css,html,svg,png,ico,webmanifest}', 'scanic-ml/*.{ort,wasm}'],
         // OCR engine/models, fonts and pdf.js data are only downloaded when first used,
         // then kept in a runtime cache for offline use.
         // The HEIC decoder (libheif, ~2 MB) is only needed for HEIC files in browsers that cannot decode them.

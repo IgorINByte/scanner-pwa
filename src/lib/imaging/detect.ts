@@ -4,12 +4,17 @@
 import type { Corners } from '../../types'
 import { getCv, loadOpenCv, setCvStatus } from '../opencv'
 import type { DetectionKind } from './detect-core'
-import { decodeForDetection, detectBitmap, type DetectResult } from './detect-run'
+import { decodeForDetection, detectBitmap, type DetectionSource, type DetectOptions, type DetectResult } from './detect-run'
+import { initModel } from './ml-detect'
 import type { DetectWorkerRequest, DetectWorkerResponse } from '../../workers/detect.worker'
 
 export interface Detection {
   corners: Corners
   detection: DetectionKind
+  /** Which detector produced the corners: model, classical, or none (full image). */
+  source: DetectionSource
+  /** 0..1 */
+  confidence: number
 }
 
 type Pending = { resolve: (r: DetectResult) => void; reject: (e: Error) => void; run: () => Promise<DetectResult> }
@@ -35,11 +40,15 @@ const domCanvas = (w: number, h: number) => {
   return c
 }
 
-async function detectOnMainThread(source: Blob | ImageBitmap, srcWidth: number, srcHeight: number, side?: number) {
+const mainThreadCv = async () => {
   await loadOpenCv()
-  const bitmap = source instanceof Blob ? await decodeForDetection(source, srcWidth, srcHeight, side) : source
+  return getCv()
+}
+
+async function detectOnMainThread(source: Blob | ImageBitmap, srcWidth: number, srcHeight: number, side?: number, opts?: DetectOptions) {
+  const bitmap = source instanceof Blob ? await decodeForDetection(source, srcWidth, srcHeight) : source
   try {
-    return await detectBitmap(getCv(), bitmap, srcWidth, srcHeight, domCanvas, side)
+    return await detectBitmap(mainThreadCv, bitmap, srcWidth, srcHeight, domCanvas, side, opts)
   } finally {
     bitmap.close()
   }
@@ -79,30 +88,33 @@ function getWorker(): Worker | null {
   return worker
 }
 
-/** Starts loading OpenCV ahead of time (and retries after an error). */
+/** Starts loading the ML model and OpenCV ahead of time (and retries after an error). */
 export function warmupDetector(): void {
   const w = getWorker()
   if (w) w.postMessage({ type: 'load' } satisfies DetectWorkerRequest)
-  else void loadOpenCv().catch(() => {})
+  else {
+    void initModel().catch(() => {})
+    void loadOpenCv().catch(() => {})
+  }
 }
 
 /**
  * Detects the document in a source image or frame.
  * A transferred ImageBitmap is consumed (closed) by this call.
  */
-export function detect(source: Blob | ImageBitmap, srcWidth: number, srcHeight: number, side?: number): Promise<DetectResult> {
-  const run = () => detectOnMainThread(source, srcWidth, srcHeight, side)
+export function detect(source: Blob | ImageBitmap, srcWidth: number, srcHeight: number, side?: number, opts?: DetectOptions): Promise<DetectResult> {
+  const run = () => detectOnMainThread(source, srcWidth, srcHeight, side, opts)
   const w = getWorker()
   if (!w) return run()
   const id = nextId++
   return new Promise((resolve, reject) => {
     pending.set(id, { resolve, reject, run })
-    const msg: DetectWorkerRequest = { type: 'detect', id, source, srcWidth, srcHeight, side }
+    const msg: DetectWorkerRequest = { type: 'detect', id, source, srcWidth, srcHeight, side, opts }
     w.postMessage(msg, source instanceof ImageBitmap ? [source] : [])
   })
 }
 
 export async function detectCorners(source: Blob, width: number, height: number): Promise<Detection> {
   const r = await detect(source, width, height)
-  return { corners: r.corners, detection: r.detection }
+  return { corners: r.corners, detection: r.detection, source: r.source, confidence: r.confidence }
 }
