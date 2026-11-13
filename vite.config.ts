@@ -49,9 +49,7 @@ export default defineConfig(({ command, isPreview }) => ({
         // OCR engine/models, fonts and pdf.js data are only downloaded when first used,
         // then kept in a runtime cache for offline use.
         // The HEIC decoder (libheif, ~2 MB) is only needed for HEIC files in browsers that cannot decode them.
-        globIgnores: ['vendor/tesseract/**', 'vendor/tessdata/**', 'vendor/fonts/**', 'vendor/pdfjs/**', 'assets/wasm-bundle-*.js', 'camtest.html'],
-        // Temporary camera-resolution test page: never precached, never answered with the app shell.
-        navigateFallbackDenylist: [/\/camtest\.html$/],
+        globIgnores: ['vendor/tesseract/**', 'vendor/tessdata/**', 'vendor/fonts/**', 'vendor/pdfjs/**', 'assets/wasm-bundle-*.js'],
         maximumFileSizeToCacheInBytes: 16 * 1024 * 1024,
         runtimeCaching: [
           {
