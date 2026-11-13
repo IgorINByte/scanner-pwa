@@ -24,7 +24,8 @@ const PASS_ERR = 0.03
 
 const VARIANTS: { id: string; label: string; opts: DetectOptions }[] = [
   { id: 'before', label: 'prije (klasična)', opts: { only: 'classical', minArea: 0 } },
-  { id: 'after', label: 'poslije (model)', opts: {} },
+  { id: 'da', label: 'DocAligner sam', opts: { docAlignerOnly: true } },
+  { id: 'after', label: 'kombinacija', opts: {} },
 ]
 
 interface Truth {
@@ -128,7 +129,7 @@ function lines(r: Row): string[] {
     if (!d) continue
     const sc = r.scores[v.id]
     const m = sc ? `  IoU ${sc.iou.toFixed(3)} err ${pct(sc.err)}${sc.inFrame ? '' : ' OUT'} ${sc.pass ? 'PASS' : 'fail'}` : ''
-    out.push(`  ${v.id.padEnd(5)} ${d.source.padEnd(9)} conf ${d.confidence.toFixed(2)}${snapStr(d.snapped)}${m}  ${fmtCorners(d.corners, r.W, r.H)}`)
+    out.push(`  ${v.id.padEnd(5)} ${d.source.padEnd(9)}${d.model ? ` ${d.model}` : ''} ${d.ms.toFixed(0)}ms conf ${d.confidence.toFixed(2)}${snapStr(d.snapped)}${m}  ${fmtCorners(d.corners, r.W, r.H)}`)
   }
   if (r.error) out.push(`  error: ${r.error}`)
   return out
@@ -140,13 +141,22 @@ const fmtTable = (head: string[], body: string[][]) => {
   return [fmt(head), '|' + w.map((n) => '-'.repeat(n + 2)).join('|') + '|', ...body.map(fmt)].join('\n')
 }
 
+/** Median detection time per variant (ms, excluding decode). */
+function msLine(rs: Row[]): string {
+  const med = (id: string) => {
+    const t = rs.map((r) => r.results[id]?.ms).filter((v): v is number => v !== undefined).sort((a, b) => a - b)
+    return t.length ? `${t[Math.floor(t.length / 2)].toFixed(0)} ms` : '-'
+  }
+  return `vrijeme po slici (medijan): ${VARIANTS.map((v) => `${v.label} ${med(v.id)}`).join(', ')}`
+}
+
 /** SYN table: passes per folder and variant. Folders without SYN photos are left out. */
 function synTable(rows: Record<string, Row[]>): string {
   const body = Object.entries(rows)
     .map(([folder, rs]) => [folder, rs.filter((r) => r.truth)] as const)
     .filter(([, syn]) => syn.length)
     .map(([folder, syn]) => [folder, String(syn.length), ...VARIANTS.map((v) => `${syn.filter((r) => r.scores[v.id]?.pass).length}/${syn.length}`)])
-  return fmtTable(['mapa', 'SYN', ...VARIANTS.map((v) => v.label)], body)
+  return fmtTable(['mapa', 'SYN', ...VARIANTS.map((v) => v.label)], body) + '\n' + msLine(Object.values(rows).flat().filter((r) => r.truth))
 }
 
 /** Real photos (no ground truth): which detector produced the frame, per variant. */
@@ -157,7 +167,7 @@ function realTable(rows: Record<string, Row[]>): string {
     .map(([folder, rs]) => [folder, rs.filter((r) => !r.truth)] as const)
     .filter(([, real]) => real.length)
     .map(([folder, real]) => [folder, String(real.length), ...VARIANTS.map((v) => src(real, v.id))])
-  return fmtTable(['mapa', 'slika', ...VARIANTS.map((v) => `${v.label} m/c/n`)], body)
+  return fmtTable(['mapa', 'slika', ...VARIANTS.map((v) => `${v.label} m/c/n`)], body) + '\n' + msLine(Object.values(rows).flat().filter((r) => !r.truth))
 }
 
 const poly = (c: Corners, s: number) => c.map((p) => `${p.x * s},${p.y * s}`).join(' ')

@@ -1,8 +1,9 @@
 /// <reference lib="webworker" />
-// Document detection worker: owns the ML corner model (DocAligner) and the OpenCV.js instance, so
+// Document detection worker: owns the ML corner models (DocAligner, scanic LEAN) and the OpenCV.js instance, so
 // model inference, the ~11 MB OpenCV module and all pixel work stay off the UI thread.
 import { decodeForDetection, detectBitmap, type DetectOptions } from '../lib/imaging/detect-run'
 import { initModel } from '../lib/imaging/docaligner-detect'
+import { initModel as initLean } from '../lib/imaging/ml-detect'
 import { OPENCV_URL, whenCvReady, type CV } from '../lib/opencv'
 
 export type DetectWorkerRequest =
@@ -56,6 +57,7 @@ self.onmessage = async (e: MessageEvent<DetectWorkerRequest>) => {
   const msg = e.data
   if (msg.type === 'load') {
     void initModel().catch((e) => console.warn('ML detector failed to load', e))
+    void initLean().catch((e) => console.warn('LEAN detector failed to load', e))
     void loadCv().catch(() => {})
     return
   }

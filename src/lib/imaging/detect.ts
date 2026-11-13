@@ -6,6 +6,7 @@ import { getCv, loadOpenCv, setCvStatus } from '../opencv'
 import type { DetectionKind } from './detect-core'
 import { decodeForDetection, detectBitmap, type DetectionSource, type DetectOptions, type DetectResult } from './detect-run'
 import { initModel } from './docaligner-detect'
+import { initModel as initLean } from './ml-detect'
 import type { DetectWorkerRequest, DetectWorkerResponse } from '../../workers/detect.worker'
 
 export interface Detection {
@@ -94,6 +95,7 @@ export function warmupDetector(): void {
   if (w) w.postMessage({ type: 'load' } satisfies DetectWorkerRequest)
   else {
     void initModel().catch(() => {})
+    void initLean().catch(() => {})
     void loadOpenCv().catch(() => {})
   }
 }
