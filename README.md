@@ -125,6 +125,7 @@ npm run build
 - Annotations are flattened into the page content of exported PDFs (not editable PDF annotation objects).
 - A PDF opened with a password is stored decrypted on the device so it can be edited.
 - "Convert PDF pages to images" only shrinks image-heavy PDFs; text/vector pages can get bigger.
+- Edge detection often misses small documents (under ~12 % of the photo, e.g. a payment slip) on a busy or patterned background such as tiles; adjust the corners manually in that case.
 
 ### Testing on a phone
 
