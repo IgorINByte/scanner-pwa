@@ -9,9 +9,10 @@ import { repository } from '../storage/repository'
 import { createMapper, placeImage, type Mapper, type Orientation, type PageSize } from './layout'
 
 export const QUALITY: Record<Quality, { label: string; hint: string; maxSide: number; jpeg: number }> = {
-  low: { label: 'Smaller file', hint: '150 dpi', maxSide: 1240, jpeg: 0.55 },
-  medium: { label: 'Balanced', hint: '200 dpi', maxSide: 1754, jpeg: 0.75 },
-  high: { label: 'Best quality', hint: '300 dpi', maxSide: 2480, jpeg: 0.9 },
+  // maxSide is the long side in pixels; on A4 (11.69 in) that gives the dpi in the hint.
+  low: { label: 'Smaller file', hint: '106 dpi on A4', maxSide: 1240, jpeg: 0.55 },
+  medium: { label: 'Balanced', hint: '200 dpi on A4', maxSide: 2339, jpeg: 0.85 },
+  high: { label: 'Best quality', hint: '212 dpi on A4', maxSide: 2480, jpeg: 0.9 },
 }
 
 export interface PdfOptions {

@@ -25,6 +25,9 @@ export function isFullFrame(c: Corners, w: number, h: number) {
   return c.every((p, i) => Math.abs(p.x - f[i][0]) < 1 && Math.abs(p.y - f[i][1]) < 1)
 }
 
+/** Pre-threshold sharpening of the B&W document filter (0-100 scale of `sharpen`). */
+const DOCUMENT_PRESHARPEN = 20
+
 /** Built-in strength of each filter; manual sliders are added on top. */
 const FILTER_BASE = {
   original: { shadows: 0, whiten: 0, sharpness: 0 },
@@ -67,6 +70,8 @@ export function processScan(src: Img, params: ScanParams, scale: number, maxSide
       grayscale(img)
       break
     case 'document':
+      // Mild unsharp mask before thresholding keeps thin strokes crisp at full resolution.
+      sharpen(img, DOCUMENT_PRESHARPEN)
       blackAndWhite(img)
       break
     case 'text':

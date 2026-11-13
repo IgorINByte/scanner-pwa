@@ -2,6 +2,7 @@
 // main-thread fallback; only the canvas factory differs.
 import type { Corners, ScanParams } from '../../types'
 import type { Img } from './buffer'
+import { scaleFor } from './decode'
 import { outputSize } from './perspective'
 import { processScan } from './pipeline'
 
@@ -42,7 +43,8 @@ export function decodeScale(corners: Corners | null, w: number, h: number, maxSi
 
 export async function renderScan(req: RenderRequest, env: CanvasEnv): Promise<RenderResult> {
   const bitmap = await createImageBitmap(req.blob)
-  const scale = Math.min(decodeScale(req.params.corners, req.srcWidth, req.srcHeight, req.maxSide), 1)
+  // Never decode above Safari's canvas limit, whatever the stored size.
+  const scale = Math.min(decodeScale(req.params.corners, req.srcWidth, req.srcHeight, req.maxSide), scaleFor(bitmap.width, bitmap.height, Infinity))
   // The decoded bitmap may differ slightly from the stored size; map corners proportionally.
   const sx = (bitmap.width * scale) / req.srcWidth
   const w = Math.max(1, Math.round(bitmap.width * scale))
@@ -58,9 +60,9 @@ export async function renderScan(req: RenderRequest, env: CanvasEnv): Promise<Re
 
   const outCanvas = env.create(out.width, out.height)
   ctx(outCanvas).putImageData(new ImageData(out.data as Uint8ClampedArray<ArrayBuffer>, out.width, out.height), 0, 0)
-  canvas.width = canvas.height = 0
+  canvas.width = canvas.height = 1
   const blob = await env.toBlob(outCanvas, req.type, req.quality)
   const result = { blob, width: outCanvas.width, height: outCanvas.height }
-  outCanvas.width = outCanvas.height = 0
+  outCanvas.width = outCanvas.height = 1
   return result
 }

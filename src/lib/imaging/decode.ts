@@ -14,8 +14,12 @@ const HEADER_BYTES = 256 * 1024
 
 export class DecodeError extends Error {}
 
-function scaleFor(w: number, h: number, maxSide: number) {
-  return Math.min(1, maxSide / Math.max(w, h))
+/** Safari on iOS refuses canvases/bitmaps above 16,777,216 px; stay a little under it. */
+export const MAX_CANVAS_PIXELS = 16_000_000
+
+/** Scale (<= 1) that keeps the long edge <= maxSide and the area <= MAX_CANVAS_PIXELS. */
+export function scaleFor(w: number, h: number, maxSide: number) {
+  return Math.min(1, maxSide / Math.max(w, h), Math.sqrt(MAX_CANVAS_PIXELS / Math.max(1, w * h)))
 }
 
 /** Downscales a bitmap so its long edge is <= maxSide; closes the input if it made a copy. */

@@ -16,6 +16,51 @@ interface Props {
 
 type CamState = 'starting' | 'live' | 'unavailable'
 
+/**
+ * Video sizes to try, best first. iPhone Safari delivers the full 12 MP sensor (4032x3024)
+ * as live video when asked for 4:3, but only ~1080p when asked for 3840x2160.
+ * The preview is the <video> element itself; a full frame is copied only when shooting.
+ */
+const RESOLUTIONS = [
+  { width: 4032, height: 3024 },
+  { width: 3840, height: 2160 },
+]
+
+/** Long side of what the camera actually delivers; reaching 90 % of the request counts as success. */
+const longSide = (s: MediaTrackSettings) => Math.max(s.width ?? 0, s.height ?? 0)
+
+async function openCamera(cancelled: () => boolean): Promise<MediaStream> {
+  const base = { facingMode: { ideal: 'environment' } }
+  let best: { video: MediaTrackConstraints; long: number } | null = null
+  for (const r of RESOLUTIONS) {
+    const video = { ...base, width: { ideal: r.width }, height: { ideal: r.height } }
+    let stream: MediaStream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: false, video })
+    } catch (e) {
+      // Permission problems will not be fixed by another size.
+      if (e instanceof DOMException && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) throw e
+      continue
+    }
+    const settings = stream.getVideoTracks()[0]?.getSettings() ?? {}
+    const long = longSide(settings)
+    if (long >= Math.max(r.width, r.height) * 0.9 || cancelled()) return logged(stream, r)
+    if (!best || long > best.long) best = { video, long }
+    stream.getTracks().forEach((t) => t.stop())
+  }
+  // Nothing reached its target: reopen the largest one we saw, else the browser default.
+  const video = best?.video ?? base
+  return logged(await navigator.mediaDevices.getUserMedia({ audio: false, video }), best ? 'largest' : 'default')
+}
+
+function logged(stream: MediaStream, asked: unknown) {
+  if (import.meta.env.DEV) {
+    const s = stream.getVideoTracks()[0]?.getSettings()
+    console.info('[camera] requested', asked, '→ got', `${s?.width}×${s?.height} @ ${s?.frameRate ?? '?'} fps`)
+  }
+  return stream
+}
+
 export default function CameraScreen({ mode, pageCount, lastThumb, onCapture, onImport, onDone, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [state, setState] = useState<CamState>('starting')
@@ -35,10 +80,7 @@ export default function CameraScreen({ mode, pageCount, lastThumb, onCapture, on
         return
       }
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } },
-        })
+        stream = await openCamera(() => cancelled)
         if (cancelled) return stream.getTracks().forEach((t) => t.stop())
         const video = videoRef.current!
         video.srcObject = stream

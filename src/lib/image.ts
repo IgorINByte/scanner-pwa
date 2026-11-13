@@ -1,4 +1,4 @@
-import { decodeInput, INPUT_MAX_SIDE } from './imaging/decode'
+import { decodeInput, INPUT_MAX_SIDE, scaleFor } from './imaging/decode'
 
 /** Long-edge cap for stored source images. */
 export const MAX_SIDE = INPUT_MAX_SIDE
@@ -39,18 +39,18 @@ export function createCanvas(w: number, h: number) {
 
 /** Frees canvas backing memory right away (iOS caps total canvas memory). */
 export function releaseCanvas(c: HTMLCanvasElement) {
-  c.width = 0
-  c.height = 0
+  c.width = 1
+  c.height = 1
 }
 
 export function ctx2d(c: HTMLCanvasElement) {
   return c.getContext('2d', { willReadFrequently: true })!
 }
 
-/** Draws a source into a new canvas, scaled so the longer side is at most maxSide. */
+/** Draws a source into a new canvas, scaled so the longer side is at most maxSide (and under Safari's canvas limit). */
 export function drawScaled(src: Drawable, maxSide: number = MAX_SIDE) {
   const { w, h } = sizeOf(src)
-  const scale = Math.min(1, maxSide / Math.max(w, h))
+  const scale = scaleFor(w, h, maxSide)
   const canvas = createCanvas(w * scale, h * scale)
   const ctx = ctx2d(canvas)
   ctx.imageSmoothingQuality = 'high'
