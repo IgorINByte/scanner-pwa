@@ -11,7 +11,7 @@ import { Notice, ToolLayout } from './ToolLayout'
 
 /** Below this detection confidence the crop screen shows the placement hint. */
 const LOW_CONFIDENCE = 0.5
-const HINT = 'Stavi papir na tamniju podlogu ili namjesti rubove ručno.'
+const HINT = 'Nisam siguran u rubove. Provjeri okvir ili ga namjesti ručno.'
 
 /** No document found, a low score, or the two corner models disagreed. */
 const needsHint = (i: DetectInfo | undefined) => !!i && (i.source === 'none' || i.confidence < LOW_CONFIDENCE || i.agree === false)
@@ -28,6 +28,8 @@ export default function CropView({ page, top, onChange, onDone }: Props) {
   const [src, setSrc] = useState<string | null>(null)
   const [draft, setDraft] = useState<Corners | null>(page.corners)
   const [detecting, setDetecting] = useState(false)
+  // Bumped after "Prepoznaj ponovno" / "Cijela slika" so the editor zooms onto the new frame.
+  const [fitKey, setFitKey] = useState(0)
 
   useEffect(() => {
     let url: string | null = null
@@ -46,6 +48,12 @@ export default function CropView({ page, top, onChange, onDone }: Props) {
   // Follow external changes (auto-detection finishing, undo/redo).
   useEffect(() => setDraft(page.corners), [page.corners])
 
+  /** Shows new corners right away and zooms the editor onto them. */
+  const refit = (c: Corners) => {
+    setDraft(c)
+    setFitKey((n) => n + 1)
+  }
+
   const commit = (c: Corners) => {
     if (isValidCrop(c, page.width, page.height)) onChange({ corners: c })
   }
@@ -55,6 +63,7 @@ export default function CropView({ page, top, onChange, onDone }: Props) {
     try {
       const d = await detectCorners(await repository.getBlob(page.sourceId), page.width, page.height)
       onChange(detectionPatch(d))
+      refit(d.corners)
     } catch (e) {
       console.warn(e)
       dialogs.toast('Edge detection is unavailable right now. Adjust the corners manually.', 'error')
@@ -70,7 +79,7 @@ export default function CropView({ page, top, onChange, onDone }: Props) {
       top={top}
       canvas={
         draft && src ? (
-          <CornerEditor src={src} width={page.width} height={page.height} corners={draft} onChange={setDraft} onCommit={commit} />
+          <CornerEditor src={src} width={page.width} height={page.height} corners={draft} onChange={setDraft} onCommit={commit} fitKey={fitKey} />
         ) : (
           <div className="flex size-full flex-col items-center justify-center gap-3 text-sm text-slate-400">
             <Spinner className="size-8 text-cyan-400" />
@@ -99,7 +108,14 @@ export default function CropView({ page, top, onChange, onDone }: Props) {
               {detecting ? <Spinner className="size-4" /> : <WandIcon width={18} />}
               Prepoznaj ponovno
             </button>
-            <button className="btn-secondary px-2 text-sm" onClick={() => onChange({ corners: fullFrame(page.width, page.height) })}>
+            <button
+              className="btn-secondary px-2 text-sm"
+              onClick={() => {
+                const c = fullFrame(page.width, page.height)
+                onChange({ corners: c })
+                refit(c)
+              }}
+            >
               <ExpandIcon width={18} />
               Cijela slika
             </button>
@@ -108,7 +124,7 @@ export default function CropView({ page, top, onChange, onDone }: Props) {
           <div>
             <SectionTitle>Page proportions</SectionTitle>
             <Segmented label="Page proportions" value={page.paper} options={PAPER_FORMATS} onChange={(paper) => onChange({ paper })} />
-            <p className="mt-1.5 text-xs text-slate-500">
+            <p className="mt-1.5 hidden text-xs text-slate-500 lg:block">
               Auto uses A4 when the frame is within 8 % of A4 proportions, otherwise its measured shape. A4 always forces A4; Slobodno
               keeps the measured shape.
             </p>
