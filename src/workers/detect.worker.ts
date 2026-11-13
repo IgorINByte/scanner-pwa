@@ -1,8 +1,8 @@
 /// <reference lib="webworker" />
-// Document detection worker: owns the ML model (scanic) and the OpenCV.js instance, so
+// Document detection worker: owns the ML corner model (DocAligner) and the OpenCV.js instance, so
 // model inference, the ~11 MB OpenCV module and all pixel work stay off the UI thread.
 import { decodeForDetection, detectBitmap, type DetectOptions } from '../lib/imaging/detect-run'
-import { initModel } from '../lib/imaging/ml-detect'
+import { initModel } from '../lib/imaging/docaligner-detect'
 import { OPENCV_URL, whenCvReady, type CV } from '../lib/opencv'
 
 export type DetectWorkerRequest =

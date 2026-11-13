@@ -1,6 +1,6 @@
 // Shared glue between a decoded bitmap and the detectors. Runs in the worker and in the
 // main-thread fallback; only the canvas factory and the OpenCV loader differ.
-//   1. ML model (scanic / DocCornerNet) on the bitmap, which scanic shrinks to 224 px,
+//   1. ML model (DocAligner lcnet100) on the bitmap, shrunk to 256 x 256 for the model,
 //      then each side is snapped to the real paper edge on a ~1600 px greyscale copy.
 //   2. If the model gives no reliable quad: the classical OpenCV detection (640 px).
 //   3. If neither: the full image.
@@ -8,7 +8,7 @@ import type { Corners } from '../../types'
 import { fullFrame } from '../geometry'
 import type { CV } from '../opencv'
 import { DETECT_SIZE, detectInImage, workingSize, type DetectionKind } from './detect-core'
-import { detectWithModel } from './ml-detect'
+import { detectWithModel } from './docaligner-detect'
 import { isValidQuad, MIN_AREA_RATIO, OUTSIDE_MARGIN, refineQuad, REFINE_SIZE, toGray } from './refine'
 
 type AnyCanvas = OffscreenCanvas | HTMLCanvasElement
@@ -22,7 +22,7 @@ export interface DetectResult {
   detection: DetectionKind
   /** Which detector produced the corners. */
   source: DetectionSource
-  /** 0..1: the model's P(document) for 'model', a fixed level for 'classical', 0 for 'none'. */
+  /** 0..1: the model's mean corner-heatmap peak for 'model', a fixed level for 'classical', 0 for 'none'. */
   confidence: number
   /** Sides (top, right, bottom, left) snapped to an image edge after the model; null if not run. */
   snapped: [boolean, boolean, boolean, boolean] | null

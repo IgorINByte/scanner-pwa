@@ -25,6 +25,7 @@
     "docx": "^9.13.0",
     "idb": "^8.0.4",
     "libheif-js": "^1.23.5",
+    "onnxruntime-web": "^1.27.0",
     "pdfjs-dist": "^6.4.299",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

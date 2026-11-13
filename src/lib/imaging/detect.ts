@@ -5,7 +5,7 @@ import type { Corners } from '../../types'
 import { getCv, loadOpenCv, setCvStatus } from '../opencv'
 import type { DetectionKind } from './detect-core'
 import { decodeForDetection, detectBitmap, type DetectionSource, type DetectOptions, type DetectResult } from './detect-run'
-import { initModel } from './ml-detect'
+import { initModel } from './docaligner-detect'
 import type { DetectWorkerRequest, DetectWorkerResponse } from '../../workers/detect.worker'
 
 export interface Detection {
