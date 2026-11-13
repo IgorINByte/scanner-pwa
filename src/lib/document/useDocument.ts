@@ -77,7 +77,7 @@ export function useDocument(initial: ScanDocument, getThumb: () => Promise<Blob 
           ...d,
           pages: d.pages.map((p) => {
             const n = next.pages.find((x) => x.id === p.id)
-            return n && p.kind === 'scan' && n.kind === 'scan' && p.corners === null ? { ...p, corners: n.corners, detection: n.detection } : p
+            return n && p.kind === 'scan' && n.kind === 'scan' && p.corners === null ? { ...p, corners: n.corners, detection: n.detection, detectInfo: n.detectInfo } : p
           }),
         })
         past.current = past.current.map(patchHistory)

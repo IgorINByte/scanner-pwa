@@ -33,14 +33,27 @@ export interface Adjustments {
 
 export const NO_ADJUSTMENTS: Adjustments = { brightness: 0, contrast: 0, sharpness: 0, denoise: 0, shadows: 0, whiten: 0 }
 
-/** Target aspect ratio for perspective correction. */
-export type PaperFormat = 'auto' | 'a4' | 'a5' | 'letter'
+/** How the automatic corners of a scan page were found. */
+export interface DetectInfo {
+  /** Which detector produced the corners; 'none' = full image. */
+  source: 'model' | 'classical' | 'none'
+  /** 0..1 */
+  confidence: number
+  /** Both corner models gave the same frame (model source only). */
+  agree?: boolean
+}
 
+/**
+ * Target aspect ratio for perspective correction. 'auto' keeps the measured shape (shown as
+ * "Slobodno"); 'smart' snaps to A4 when the measured shape is within 8 % of it.
+ */
+export type PaperFormat = 'smart' | 'auto' | 'a4' | 'a5' | 'letter'
+
+/** Choices offered in the crop screen (A5/Letter stay valid for older pages). */
 export const PAPER_FORMATS: { id: PaperFormat; label: string }[] = [
-  { id: 'auto', label: 'Auto' },
+  { id: 'smart', label: 'Auto' },
   { id: 'a4', label: 'A4' },
-  { id: 'a5', label: 'A5' },
-  { id: 'letter', label: 'Letter' },
+  { id: 'auto', label: 'Slobodno' },
 ]
 
 /** Everything the image pipeline needs to render a scan page. */
@@ -132,6 +145,8 @@ export interface ScanPage extends PageBase {
   /** null while auto-detection is still pending. */
   corners: Corners | null
   detection: 'found' | 'approx' | 'none' | null
+  /** Source and confidence of the automatic corners (absent on older pages). */
+  detectInfo?: DetectInfo
   paper: PaperFormat
   filter: FilterId
   adjust: Adjustments

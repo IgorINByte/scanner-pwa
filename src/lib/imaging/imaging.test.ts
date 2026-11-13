@@ -97,6 +97,24 @@ describe('perspective', () => {
     expect(letter.height / letter.width).toBeCloseTo(11 / 8.5, 2)
     expect(Math.max(...Object.values(outputSize(c, 'auto', 50)))).toBe(50)
   })
+
+  it('smart snaps to A4 only within 8 % of its proportions, upright or landscape', () => {
+    const rect = (w: number, h: number): Corners => [
+      { x: 0, y: 0 },
+      { x: w, y: 0 },
+      { x: w, y: h },
+      { x: 0, y: h },
+    ]
+    const ratio = (s: { width: number; height: number }) => Math.max(s.width, s.height) / Math.min(s.width, s.height)
+    // 1.50 is 6 % off A4 (1.414): snapped, upright and landscape.
+    expect(ratio(outputSize(rect(100, 150), 'smart', 1000))).toBeCloseTo(Math.SQRT2, 2)
+    const land = outputSize(rect(150, 100), 'smart', 1000)
+    expect(land.width).toBeGreaterThan(land.height)
+    expect(ratio(land)).toBeCloseTo(Math.SQRT2, 2)
+    // 2.00 (a payment slip) and 1.20 are far from A4: measured shape kept.
+    expect(outputSize(rect(200, 100), 'smart', 1000)).toEqual({ width: 200, height: 100 })
+    expect(outputSize(rect(100, 120), 'smart', 1000)).toEqual({ width: 100, height: 120 })
+  })
 })
 
 describe('enhancements', () => {

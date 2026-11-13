@@ -4,21 +4,35 @@ import { createImg, type Img } from './buffer'
 
 const dist = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y)
 
-const PAPER_RATIO: Record<Exclude<PaperFormat, 'auto'>, number> = {
+/** 'smart' snaps to A4 when the measured long/short ratio is within this of A4's. */
+export const A4_SNAP = 0.08
+
+const PAPER_RATIO: Record<Exclude<PaperFormat, 'auto' | 'smart'>, number> = {
   a4: Math.SQRT2,
   a5: Math.SQRT2,
   letter: 11 / 8.5,
 }
 
+/** The paper format whose ratio is forced: 'smart' becomes A4 or the measured shape. */
+export function effectivePaper(c: Corners, paper: PaperFormat): Exclude<PaperFormat, 'smart'> {
+  if (paper !== 'smart') return paper
+  const w = Math.max(dist(c[0], c[1]), dist(c[3], c[2]))
+  const h = Math.max(dist(c[0], c[3]), dist(c[1], c[2]))
+  const ratio = Math.max(w, h) / Math.max(1e-9, Math.min(w, h))
+  return Math.abs(ratio / Math.SQRT2 - 1) <= A4_SNAP ? 'a4' : 'auto'
+}
+
 /**
  * Output size of the flattened page. "auto" keeps the measured proportions; a paper
- * format forces its aspect ratio (orientation follows the measured shape).
+ * format forces its aspect ratio (orientation follows the measured shape); "smart" is A4
+ * when the measured shape is within A4_SNAP of it, otherwise "auto".
  */
 export function outputSize(c: Corners, paper: PaperFormat, maxSide: number): { width: number; height: number } {
   let w = Math.max(dist(c[0], c[1]), dist(c[3], c[2]))
   let h = Math.max(dist(c[0], c[3]), dist(c[1], c[2]))
-  if (paper !== 'auto') {
-    const ratio = PAPER_RATIO[paper]
+  const fmt = effectivePaper(c, paper)
+  if (fmt !== 'auto') {
+    const ratio = PAPER_RATIO[fmt]
     const long = Math.max(w, h)
     if (h >= w) {
       h = long

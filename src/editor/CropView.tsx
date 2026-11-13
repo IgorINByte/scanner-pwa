@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react'
-import CornerEditor, { isConvex } from '../components/CornerEditor'
+import CornerEditor, { isValidCrop } from '../components/CornerEditor'
 import { useDialogs } from '../components/dialogs'
 import { ExpandIcon, ResetIcon, WandIcon } from '../components/Icons'
 import { Segmented, SectionTitle, Spinner } from '../components/ui'
 import { fullFrame } from '../lib/geometry'
-import { detectCorners } from '../lib/imaging/detect'
+import { detectCorners, detectionPatch } from '../lib/imaging/detect'
 import { repository } from '../lib/storage/repository'
-import { PAPER_FORMATS, type Corners, type ScanPage } from '../types'
+import { PAPER_FORMATS, type Corners, type DetectInfo, type ScanPage } from '../types'
 import { Notice, ToolLayout } from './ToolLayout'
+
+/** Below this detection confidence the crop screen shows the placement hint. */
+const LOW_CONFIDENCE = 0.5
+const HINT = 'Stavi papir na tamniju podlogu ili namjesti rubove ručno.'
+
+/** No document found, a low score, or the two corner models disagreed. */
+const needsHint = (i: DetectInfo | undefined) => !!i && (i.source === 'none' || i.confidence < LOW_CONFIDENCE || i.agree === false)
 
 interface Props {
   page: ScanPage
@@ -40,15 +47,14 @@ export default function CropView({ page, top, onChange, onDone }: Props) {
   useEffect(() => setDraft(page.corners), [page.corners])
 
   const commit = (c: Corners) => {
-    if (isConvex(c)) onChange({ corners: c })
+    if (isValidCrop(c, page.width, page.height)) onChange({ corners: c })
   }
 
   const auto = async () => {
     setDetecting(true)
     try {
       const d = await detectCorners(await repository.getBlob(page.sourceId), page.width, page.height)
-      onChange({ corners: d.corners, detection: d.detection })
-      if (d.detection === 'none') dialogs.toast('No document outline found — adjust the corners manually.', 'info')
+      onChange(detectionPatch(d))
     } catch (e) {
       console.warn(e)
       dialogs.toast('Edge detection is unavailable right now. Adjust the corners manually.', 'error')
@@ -57,7 +63,7 @@ export default function CropView({ page, top, onChange, onDone }: Props) {
     }
   }
 
-  const valid = draft ? isConvex(draft) : false
+  const valid = draft ? isValidCrop(draft, page.width, page.height) : false
 
   return (
     <ToolLayout
@@ -75,7 +81,11 @@ export default function CropView({ page, top, onChange, onDone }: Props) {
       panel={
         <div className="space-y-4">
           {!valid && draft ? (
-            <Notice tone="warn">The corners must form a convex shape. Drag them to the edges of the page.</Notice>
+            <Notice tone="warn">
+              The frame is not valid: it must be convex, without crossed corners, and cover at least 3 % of the photo.
+            </Notice>
+          ) : needsHint(page.detectInfo) ? (
+            <Notice tone="warn">{HINT}</Notice>
           ) : page.detection === 'found' ? (
             <Notice tone="ok">Document edges detected. Drag any corner to fine-tune.</Notice>
           ) : page.detection === 'approx' ? (
@@ -87,11 +97,11 @@ export default function CropView({ page, top, onChange, onDone }: Props) {
           <div className="grid grid-cols-2 gap-2">
             <button className="btn-secondary px-2 text-sm" onClick={() => void auto()} disabled={detecting}>
               {detecting ? <Spinner className="size-4" /> : <WandIcon width={18} />}
-              Auto detect
+              Prepoznaj ponovno
             </button>
             <button className="btn-secondary px-2 text-sm" onClick={() => onChange({ corners: fullFrame(page.width, page.height) })}>
               <ExpandIcon width={18} />
-              Full image
+              Cijela slika
             </button>
           </div>
 
@@ -99,7 +109,8 @@ export default function CropView({ page, top, onChange, onDone }: Props) {
             <SectionTitle>Page proportions</SectionTitle>
             <Segmented label="Page proportions" value={page.paper} options={PAPER_FORMATS} onChange={(paper) => onChange({ paper })} />
             <p className="mt-1.5 text-xs text-slate-500">
-              Auto keeps the measured shape. A4/A5/Letter force that paper’s proportions after straightening.
+              Auto uses A4 when the frame is within 8 % of A4 proportions, otherwise its measured shape. A4 always forces A4; Slobodno
+              keeps the measured shape.
             </p>
           </div>
 

@@ -50,7 +50,7 @@ export async function scanPageFromImage(docId: string, img: PreparedImage): Prom
     height: img.height,
     corners: null,
     detection: null,
-    paper: 'auto',
+    paper: 'smart',
     filter: readSetting<FilterId>(FILTER_KEY, 'auto'),
     adjust: { ...NO_ADJUSTMENTS },
     rotation: 0,

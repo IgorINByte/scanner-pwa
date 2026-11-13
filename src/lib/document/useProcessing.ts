@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Page, ScanDocument } from '../../types'
-import { detectCorners } from '../imaging/detect'
+import { detectCorners, detectionPatch, type DetectionPatch } from '../imaging/detect'
 import { fullFrame } from '../geometry'
 import { pageKey, renderPage } from '../render'
 import { repository } from '../storage/repository'
@@ -21,7 +21,7 @@ export function useProcessing(
   doc: ScanDocument,
   /** Synchronous access to the latest pages (updated before React re-renders). */
   getPages: () => Page[],
-  setDetection: (pageId: string, d: { corners: NonNullable<Extract<Page, { kind: 'scan' }>['corners']>; detection: 'found' | 'approx' | 'none' }) => void,
+  setDetection: (pageId: string, d: DetectionPatch) => void,
 ) {
   const [thumbs, setThumbs] = useState<Record<string, Thumb>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -39,11 +39,15 @@ export function useProcessing(
         if (pending && pending.kind === 'scan') {
           try {
             const d = await detectCorners(await repository.getBlob(pending.sourceId), pending.width, pending.height)
-            setDetection(pending.id, d)
+            setDetection(pending.id, detectionPatch(d))
           } catch (e) {
             console.warn('Edge detection failed', e)
             failed.current.add(`d:${pending.id}`)
-            setDetection(pending.id, { corners: fullFrame(pending.width, pending.height), detection: 'none' })
+            setDetection(pending.id, {
+              corners: fullFrame(pending.width, pending.height),
+              detection: 'none',
+              detectInfo: { source: 'none', confidence: 0 },
+            })
           }
           continue
         }

@@ -1,7 +1,7 @@
 // Main-thread facade for document detection. All OpenCV work runs in the detection worker;
 // the main thread only sends a Blob or a transferred ImageBitmap and gets corners back.
 // Browsers without worker OffscreenCanvas fall back to running the same code here.
-import type { Corners } from '../../types'
+import type { Corners, DetectInfo, ScanPage } from '../../types'
 import { getCv, loadOpenCv, setCvStatus } from '../opencv'
 import type { DetectionKind } from './detect-core'
 import { decodeForDetection, detectBitmap, type DetectionSource, type DetectOptions, type DetectResult } from './detect-run'
@@ -16,6 +16,8 @@ export interface Detection {
   source: DetectionSource
   /** 0..1 */
   confidence: number
+  /** Both corner models gave the same frame (source 'model' only). */
+  agree?: boolean
 }
 
 type Pending = { resolve: (r: DetectResult) => void; reject: (e: Error) => void; run: () => Promise<DetectResult> }
@@ -116,7 +118,16 @@ export function detect(source: Blob | ImageBitmap, srcWidth: number, srcHeight: 
   })
 }
 
+/** What a page stores from a detection result. */
+export type DetectionPatch = Pick<ScanPage, 'corners' | 'detection'> & { corners: Corners; detectInfo: DetectInfo }
+
+export const detectionPatch = (d: Detection): DetectionPatch => ({
+  corners: d.corners,
+  detection: d.detection,
+  detectInfo: { source: d.source, confidence: d.confidence, ...(d.agree === undefined ? {} : { agree: d.agree }) },
+})
+
 export async function detectCorners(source: Blob, width: number, height: number): Promise<Detection> {
   const r = await detect(source, width, height)
-  return { corners: r.corners, detection: r.detection, source: r.source, confidence: r.confidence }
+  return { corners: r.corners, detection: r.detection, source: r.source, confidence: r.confidence, agree: r.agree }
 }

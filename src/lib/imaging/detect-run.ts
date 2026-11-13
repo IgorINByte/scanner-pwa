@@ -32,6 +32,8 @@ export interface DetectResult {
   snapped: [boolean, boolean, boolean, boolean] | null
   /** Which model's quad was used (source 'model' only). */
   model?: ModelName
+  /** Both models gave the same frame (source 'model' only; false if only one gave a quad). */
+  agree?: boolean
   /** Detection time in ms, excluding decode. */
   ms: number
 }
@@ -86,6 +88,7 @@ interface ModelQuad {
   corners: Corners
   score: number
   snapped: Snapped
+  agree?: boolean
 }
 
 async function runModel(name: ModelName, fn: (b: ImageBitmap) => Promise<Pick<ModelResult, 'corners' | 'score' | 'success'> | null>, bitmap: ImageBitmap) {
@@ -128,10 +131,10 @@ async function modelStage(bitmap: ImageBitmap, createCanvas: (w: number, h: numb
   })
   // quads[0] is DocAligner whenever it gave a valid quad, so it wins agreement and ties.
   const [a, b] = quads
-  if (!b) return a
-  if (quadIoU(a.corners, b.corners) >= AGREE_IOU && cyclicError(a.corners, b.corners, bw, bh) <= AGREE_ERR) return a
+  if (!b) return { ...a, agree: opts.docAlignerOnly ? undefined : false }
+  if (quadIoU(a.corners, b.corners) >= AGREE_IOU && cyclicError(a.corners, b.corners, bw, bh) <= AGREE_ERR) return { ...a, agree: true }
   const n = (q: ModelQuad) => q.snapped.filter(Boolean).length
-  return n(b) > n(a) ? b : a
+  return { ...(n(b) > n(a) ? b : a), agree: false }
 }
 
 export async function detectBitmap(
@@ -158,6 +161,7 @@ export async function detectBitmap(
         confidence: m.score,
         snapped: m.snapped,
         model: m.model,
+        agree: m.agree,
       })
   }
 

@@ -32,6 +32,7 @@ import { clearPreviewCache } from '../editor/usePreview'
 import { importImages, importPdf, scanPageFromImage, type ImportIssue } from '../lib/document/import'
 import { useDocument, type SaveState } from '../lib/document/useDocument'
 import { useProcessing } from '../lib/document/useProcessing'
+import type { DetectionPatch } from '../lib/imaging/detect'
 import { IMAGE_ACCEPT, PDF_ACCEPT, sanitizeFileName } from '../lib/files'
 import type { PreparedImage } from '../lib/image'
 import { releasePdf } from '../lib/pdf/pdfjs'
@@ -95,8 +96,7 @@ function Editor({ screen, nav, mode, initial }: Props & { initial: ScanDocument 
   const { doc, update, updatePage, undo, redo, canUndo, canRedo, saveState, docRef } = api
 
   const setDetection = useCallback(
-    (id: string, d: { corners: NonNullable<ScanPage['corners']>; detection: ScanPage['detection'] }) =>
-      updatePage(id, (p) => (p.kind === 'scan' ? { ...p, corners: d.corners, detection: d.detection } : p), { undoable: false }),
+    (id: string, d: DetectionPatch) => updatePage(id, (p) => (p.kind === 'scan' ? { ...p, ...d } : p), { undoable: false }),
     [updatePage],
   )
   const getPages = useCallback(() => docRef.current.pages, [docRef])
