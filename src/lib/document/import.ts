@@ -1,5 +1,5 @@
 // Turning files / camera frames into document pages.
-import { DEFAULT_WATERMARK, NO_ADJUSTMENTS, type FilterId, type OcrLang, type PdfPage, type ScanDocument, type ScanPage } from '../../types'
+import { DEFAULT_WATERMARK, NO_ADJUSTMENTS, type OcrLang, type PdfPage, type ScanDocument, type ScanPage } from '../../types'
 import { FileValidationError, defaultFileName, validateFile } from '../files'
 import { prepareImage, type PreparedImage } from '../image'
 import { decryptPdf } from '../pdf/export'
@@ -7,7 +7,6 @@ import { openPdf, PdfPasswordError, readPageInfo } from '../pdf/pdfjs'
 import { repository } from '../storage/repository'
 import { uid } from '../uid'
 
-const FILTER_KEY = 'scanner.defaultFilter'
 const LANG_KEY = 'scanner.ocrLang'
 
 function readSetting<T extends string>(key: string, fallback: T): T {
@@ -18,9 +17,9 @@ function readSetting<T extends string>(key: string, fallback: T): T {
   }
 }
 
-export function rememberSetting(key: 'filter' | 'ocrLang', value: string) {
+export function rememberSetting(_key: 'ocrLang', value: string) {
   try {
-    localStorage.setItem(key === 'filter' ? FILTER_KEY : LANG_KEY, value)
+    localStorage.setItem(LANG_KEY, value)
   } catch {
     // storage unavailable (private mode) - not important
   }
@@ -51,7 +50,8 @@ export async function scanPageFromImage(docId: string, img: PreparedImage): Prom
     corners: null,
     detection: null,
     paper: 'smart',
-    filter: readSetting<FilterId>(FILTER_KEY, 'auto'),
+    // New pages always start with the Auto filter; the user can change it per page.
+    filter: 'auto',
     adjust: { ...NO_ADJUSTMENTS },
     rotation: 0,
     annotations: [],

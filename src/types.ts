@@ -45,7 +45,7 @@ export interface DetectInfo {
 
 /**
  * Target aspect ratio for perspective correction. 'auto' keeps the measured shape (shown as
- * "Slobodno"); 'smart' snaps to A4 when the measured shape is within 8 % of it.
+ * "Free"); 'smart' snaps to A4 when the measured shape is within 8 % of it.
  */
 export type PaperFormat = 'smart' | 'auto' | 'a4' | 'a5' | 'letter'
 
@@ -53,7 +53,7 @@ export type PaperFormat = 'smart' | 'auto' | 'a4' | 'a5' | 'letter'
 export const PAPER_FORMATS: { id: PaperFormat; label: string }[] = [
   { id: 'smart', label: 'Auto' },
   { id: 'a4', label: 'A4' },
-  { id: 'auto', label: 'Slobodno' },
+  { id: 'auto', label: 'Free' },
 ]
 
 /** Everything the image pipeline needs to render a scan page. */

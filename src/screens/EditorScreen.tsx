@@ -416,29 +416,33 @@ function Editor({ screen, nav, mode, initial }: Props & { initial: ScanDocument 
     <div className="fixed inset-0 flex flex-col bg-slate-950">
       {photos.input}
       {pdfs.input}
-      <header className="flex h-[calc(env(safe-area-inset-top)+3.5rem)] shrink-0 items-end border-b border-white/5 bg-slate-900 px-2 pb-1">
+      {/* Safe areas: content clears the notch / Dynamic Island and rounded corners on every side. */}
+      <header className="shrink-0 border-b border-white/5 bg-slate-900 pt-[env(safe-area-inset-top)] pr-[max(0.5rem,env(safe-area-inset-right))] pl-[max(0.5rem,env(safe-area-inset-left))]">
         <div className="flex h-12 w-full items-center gap-1">
           <button className="icon-btn" onClick={() => void leave()} aria-label="Back to documents">
             <BackIcon />
           </button>
-          <button className="min-w-0 flex-1 truncate text-left" onClick={() => void rename()} title="Rename">
-            <span className="block truncate font-semibold">{doc.name}</span>
-            <SaveIndicator state={saveState} />
-          </button>
+          {/* The title shrinks and ends in "…" so the buttons on the right always stay whole. */}
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <button className="block w-full max-w-full overflow-hidden text-left" onClick={() => void rename()} title="Rename">
+              <span className="block truncate font-semibold">{doc.name}</span>
+              <SaveIndicator state={saveState} />
+            </button>
+          </div>
           <button className="icon-btn" onClick={undo} disabled={!canUndo} aria-label="Undo">
             <UndoIcon />
           </button>
           <button className="icon-btn" onClick={redo} disabled={!canRedo} aria-label="Redo">
             <RedoIcon />
           </button>
-          <button className="btn-primary min-h-10 px-3 py-2 text-sm" onClick={() => nav.go({ ...screen, overlay: 'export' })} disabled={!pages.length} aria-label="Export">
+          <button className="btn-primary min-h-10 shrink-0 px-3 py-2 text-sm" onClick={() => nav.go({ ...screen, overlay: 'export' })} disabled={!pages.length} aria-label="Export">
             <ShareIcon width={18} />
             <span className="hidden sm:inline">Export</span>
           </button>
         </div>
       </header>
 
-      <nav className="order-last flex shrink-0 justify-around border-t border-white/5 bg-slate-900 px-1 pt-1 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] lg:order-none lg:justify-start lg:gap-1 lg:border-t-0 lg:border-b lg:px-3 lg:pb-1" role="tablist" aria-label="Editor tools">
+      <nav className="order-last flex shrink-0 justify-around border-t border-white/5 bg-slate-900 pt-1 pr-[max(0.25rem,env(safe-area-inset-right))] pb-[calc(env(safe-area-inset-bottom)+0.25rem)] pl-[max(0.25rem,env(safe-area-inset-left))] lg:order-none lg:justify-start lg:gap-1 lg:border-t-0 lg:border-b lg:px-3 lg:pb-1" role="tablist" aria-label="Editor tools">
         {TABS.map((t) => (
           <button key={t.id} role="tab" aria-selected={tab === t.id} aria-pressed={tab === t.id} className="tool-btn lg:flex-row lg:gap-2 lg:px-3 lg:text-sm" onClick={() => setTab(t.id)} disabled={!pages.length && t.id !== 'pages'}>
             <t.icon width={20} />

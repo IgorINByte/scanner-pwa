@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { CompareIcon, ResetIcon, RotateIcon, RotateLeftIcon, WandIcon } from '../components/Icons'
 import { Segmented, SectionTitle, Slider } from '../components/ui'
-import { rememberSetting } from '../lib/document/import'
 import { FILTERS, NO_ADJUSTMENTS, type Adjustments, type Page, type Rotation, type ScanPage } from '../types'
 import { PagePreview } from './PagePreview'
 import { Notice, ToolLayout } from './ToolLayout'
@@ -130,7 +129,6 @@ export default function EnhanceView({ page, top, onChange, onRotate, onApplyToAl
                     key={f.id}
                     onClick={() => {
                       onChange({ filter: f.id })
-                      rememberSetting('filter', f.id)
                     }}
                     aria-pressed={page.filter === f.id}
                     title={f.hint}
