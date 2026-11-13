@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Camera resolution test</title>
+    <style>
+      body { font: 15px -apple-system, system-ui, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 12px; }
+      button, label.btn { display: block; width: 100%; margin: 6px 0; padding: 12px; font-size: 15px; border: 0; border-radius: 10px; background: #0891b2; color: #fff; text-align: center; }
+      pre { white-space: pre-wrap; word-break: break-word; background: #020617; padding: 10px; border-radius: 8px; font-size: 12px; }
+      video { width: 100%; max-height: 35vh; background: #000; border-radius: 8px; }
+    </style>
+  </head>
+  <body>
+    <h3>Camera resolution test (nothing is uploaded)</h3>
+    <button data-w="3840" data-h="2160">Video ideal 3840×2160 (as the app)</button>
+    <button data-w="4032" data-h="3024">Video ideal 4032×3024 (4:3)</button>
+    <button data-w="1920" data-h="1080">Video ideal 1920×1080</button>
+    <button id="photo">ImageCapture.takePhoto (if supported)</button>
+    <label class="btn">Native camera (input capture)<input id="file" type="file" accept="image/*" capture="environment" hidden /></label>
+    <video id="v" playsinline muted autoplay></video>
+    <pre id="out">Tap a button.</pre>
+    <script>
+      const out = document.getElementById('out')
+      const v = document.getElementById('v')
+      let stream
+      const log = (s) => (out.textContent = s + '\n\n' + out.textContent)
+      const ua = navigator.userAgent
+      async function start(w, h) {
+        stream?.getTracks().forEach((t) => t.stop())
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: { facingMode: { ideal: 'environment' }, width: { ideal: w }, height: { ideal: h } },
+          })
+          v.srcObject = stream
+          await v.play()
+          await new Promise((r) => setTimeout(r, 800))
+          const t = stream.getVideoTracks()[0]
+          const s = t.getSettings()
+          const caps = t.getCapabilities ? t.getCapabilities() : {}
+          // What the app does today: draw the current video frame into a canvas.
+          const c = document.createElement('canvas')
+          c.width = v.videoWidth
+          c.height = v.videoHeight
+          c.getContext('2d').drawImage(v, 0, 0)
+          const frame = c.width + '×' + c.height
+          c.width = c.height = 1
+          log(
+            `REQUESTED ${w}×${h}\n` +
+              `settings: ${s.width}×${s.height} @ ${s.frameRate ?? '?'} fps\n` +
+              `videoWidth×videoHeight: ${v.videoWidth}×${v.videoHeight}\n` +
+              `canvas frame: ${frame}\n` +
+              `capabilities width: ${caps.width ? caps.width.min + '–' + caps.width.max : 'n/a'}, height: ${caps.height ? caps.height.min + '–' + caps.height.max : 'n/a'}\n` +
+              `screen: ${screen.width}×${screen.height} @${devicePixelRatio}x\n${ua}`,
+          )
+        } catch (e) {
+          log(`REQUESTED ${w}×${h}: ERROR ${e.name}: ${e.message}`)
+        }
+      }
+      document.querySelectorAll('button[data-w]').forEach((b) => (b.onclick = () => start(+b.dataset.w, +b.dataset.h)))
+      document.getElementById('photo').onclick = async () => {
+        if (!('ImageCapture' in window)) return log('ImageCapture: not supported in this browser')
+        if (!stream) return log('Start a video first')
+        try {
+          const blob = await new ImageCapture(stream.getVideoTracks()[0]).takePhoto()
+          const b = await createImageBitmap(blob)
+          log(`takePhoto: ${b.width}×${b.height}, ${Math.round(blob.size / 1024)} KB`)
+          b.close()
+        } catch (e) {
+          log(`takePhoto ERROR ${e.name}: ${e.message}`)
+        }
+      }
+      document.getElementById('file').onchange = async (e) => {
+        const f = e.target.files[0]
+        if (!f) return
+        try {
+          const b = await createImageBitmap(f, { imageOrientation: 'from-image' })
+          log(`input capture: ${b.width}×${b.height}, ${f.type || '?'}, ${Math.round(f.size / 1024)} KB`)
+          b.close()
+        } catch (e) {
+          log(`input capture: ${f.type}, ${Math.round(f.size / 1024)} KB, decode ERROR ${e.message}`)
+        }
+        e.target.value = ''
+      }
+    </script>
+  </body>
+</html>
