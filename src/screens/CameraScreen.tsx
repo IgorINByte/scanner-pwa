@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { CameraIcon, CheckIcon, CloseIcon, ImageIcon } from '../components/Icons'
 import { Spinner, useFilePicker } from '../components/ui'
+import LiveBenchOverlay from '../components/LiveBenchOverlay'
 import { prepareImage, type PreparedImage } from '../lib/image'
+import { getLiveBench } from '../lib/live/dev-settings'
+import { useLiveBench } from '../lib/live/useLiveBench'
 import type { ScanMode } from '../types'
 
 interface Props {
@@ -69,6 +72,12 @@ export default function CameraScreen({ mode, pageCount, lastThumb, onCapture, on
   const [flash, setFlash] = useState(0)
   const nativeCamera = useFilePicker(onImport, { capture: true })
   const gallery = useFilePicker(onImport, { multiple: true })
+  // Developer option (Storage & privacy dialog): live detection benchmark on the preview.
+  const [benchModel] = useState(() => {
+    const m = getLiveBench()
+    return m === 'off' ? null : m
+  })
+  const bench = useLiveBench(videoRef, benchModel, state === 'live')
 
   useEffect(() => {
     let stream: MediaStream | undefined
@@ -124,6 +133,7 @@ export default function CameraScreen({ mode, pageCount, lastThumb, onCapture, on
 
       <div className="relative flex-1 overflow-hidden">
         <video ref={videoRef} playsInline muted autoPlay className="absolute inset-0 size-full object-cover" />
+        {bench && <LiveBenchOverlay stats={bench} video={videoRef.current} />}
         {flash > 0 && <div key={flash} className="animate-flash pointer-events-none absolute inset-0 bg-white" />}
 
         {state === 'starting' && (
