@@ -2,9 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { CameraIcon, CheckIcon, CloseIcon, ImageIcon } from '../components/Icons'
 import { Spinner, useFilePicker } from '../components/ui'
 import LiveBenchOverlay from '../components/LiveBenchOverlay'
+import LiveQuad from '../components/LiveQuad'
 import { prepareImage, type PreparedImage } from '../lib/image'
-import { getLiveBench } from '../lib/live/dev-settings'
+import { warmupDetector } from '../lib/imaging/detect'
+import { getLiveStats, getShutterMode, setShutterMode, type ShutterMode } from '../lib/live/dev-settings'
+import { HINT_TEXT } from '../lib/live/tracking'
 import { useLiveBench } from '../lib/live/useLiveBench'
+import { useLiveTracking } from '../lib/live/useLiveTracking'
 import type { ScanMode } from '../types'
 
 interface Props {
@@ -72,12 +76,17 @@ export default function CameraScreen({ mode, pageCount, lastThumb, onCapture, on
   const [flash, setFlash] = useState(0)
   const nativeCamera = useFilePicker(onImport, { capture: true })
   const gallery = useFilePicker(onImport, { multiple: true })
-  // Developer option (Storage & privacy dialog): live detection benchmark on the preview.
-  const [benchModel] = useState(() => {
-    const m = getLiveBench()
-    return m === 'off' ? null : m
-  })
-  const bench = useLiveBench(videoRef, benchModel, state === 'live')
+  const [shutter, setShutter] = useState<ShutterMode>(getShutterMode)
+  // Live tracking (scanic LEAN on a 256 px copy of the preview) only guides framing; the
+  // capture still gets the exact full-frame detection with both models afterwards.
+  const shootRef = useRef<(auto: boolean) => void>(() => {})
+  const live = useLiveTracking(videoRef, state === 'live', { auto: shutter === 'auto', onAutoShot: () => shootRef.current(true) })
+  // Developer option (Storage & privacy dialog): det/s and ms readout.
+  const [showStats] = useState(getLiveStats)
+  const bench = useLiveBench(live.stats, showStats && state === 'live')
+
+  // The exact detector (DocAligner + OpenCV) loads in the background so it is ready by the first shot.
+  useEffect(() => warmupDetector(), [])
 
   useEffect(() => {
     let stream: MediaStream | undefined
@@ -114,9 +123,12 @@ export default function CameraScreen({ mode, pageCount, lastThumb, onCapture, on
     }
   }, [])
 
-  const shoot = async () => {
+  const shoot = async (auto = false) => {
     const video = videoRef.current
     if (!video || shooting || !video.videoWidth) return
+    if (auto && shutter !== 'auto') return
+    // Either way, the same placement must not be auto-shot again.
+    if (!auto) live.tracker.current.shot()
     setShooting(true)
     setFlash((f) => f + 1)
     try {
@@ -124,6 +136,13 @@ export default function CameraScreen({ mode, pageCount, lastThumb, onCapture, on
     } finally {
       setShooting(false)
     }
+  }
+  shootRef.current = (auto) => void shoot(auto)
+
+  const toggleShutter = () => {
+    const next = shutter === 'auto' ? 'manual' : 'auto'
+    setShutter(next)
+    setShutterMode(next)
   }
 
   return (
@@ -133,7 +152,8 @@ export default function CameraScreen({ mode, pageCount, lastThumb, onCapture, on
 
       <div className="relative flex-1 overflow-hidden">
         <video ref={videoRef} playsInline muted autoPlay className="absolute inset-0 size-full object-cover" />
-        {bench && <LiveBenchOverlay stats={bench} video={videoRef.current} />}
+        {state === 'live' && <LiveQuad target={live.target} stats={live.stats} video={videoRef} />}
+        {bench && <LiveBenchOverlay stats={bench} />}
         {flash > 0 && <div key={flash} className="animate-flash pointer-events-none absolute inset-0 bg-white" />}
 
         {state === 'starting' && (
@@ -158,8 +178,16 @@ export default function CameraScreen({ mode, pageCount, lastThumb, onCapture, on
         )}
 
         {state === 'live' && (
-          // Framing guide
-          <div className="pointer-events-none absolute inset-x-[8%] top-[10%] bottom-[10%] rounded-xl border-2 border-dashed border-white/30" />
+          // Framing guide, hidden while the live frame is shown.
+          <div
+            className={`pointer-events-none absolute inset-x-[8%] top-[10%] bottom-[10%] rounded-xl border-2 border-dashed border-white/30 transition-opacity duration-300 ${live.present ? 'opacity-0' : ''}`}
+          />
+        )}
+
+        {state === 'live' && live.hint && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-14 flex justify-center" aria-live="polite">
+            <span className="rounded-full bg-black/65 px-4 py-1.5 text-sm font-semibold">{HINT_TEXT[live.hint]}</span>
+          </div>
         )}
 
         <div className="absolute inset-x-0 top-0 flex items-center justify-between px-3 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
@@ -169,7 +197,17 @@ export default function CameraScreen({ mode, pageCount, lastThumb, onCapture, on
           <span className="rounded-full bg-black/50 px-3 py-1 text-sm font-medium">
             {mode === 'multi' ? 'Multi-page' : 'Single page'}
           </span>
-          <span className="size-11" />
+          {state === 'live' ? (
+            <button
+              className="h-11 min-w-20 rounded-full bg-black/50 px-3 text-sm font-medium"
+              onClick={toggleShutter}
+              aria-label={`Shutter: ${shutter === 'auto' ? 'automatic' : 'manual'}. Tap to switch.`}
+            >
+              {shutter === 'auto' ? 'Auto' : 'Manual'}
+            </button>
+          ) : (
+            <span className="size-11" />
+          )}
         </div>
       </div>
 

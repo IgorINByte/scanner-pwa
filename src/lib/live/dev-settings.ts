@@ -1,22 +1,29 @@
-// Developer options (per device, localStorage). Off by default; every access is guarded
-// because storage can be unavailable (private mode, blocked site data).
-export type LiveBenchModel = 'off' | 'lcnet050' | 'lean'
-
-const KEY = 'dev.liveBench'
-
-export function getLiveBench(): LiveBenchModel {
+// Per-device camera preferences (localStorage). Every access is guarded because storage can be
+// unavailable (private mode, blocked site data); the defaults then apply.
+function read(key: string): string | null {
   try {
-    const v = localStorage.getItem(KEY)
-    return v === 'lcnet050' || v === 'lean' ? v : 'off'
+    return localStorage.getItem(key)
   } catch {
-    return 'off'
+    return null
   }
 }
 
-export function setLiveBench(v: LiveBenchModel) {
+function write(key: string, value: string) {
   try {
-    localStorage.setItem(KEY, v)
+    localStorage.setItem(key, value)
   } catch {
-    // Not persisted; the option simply stays off next time.
+    // Not persisted; the default applies next time.
   }
 }
+
+const STATS_KEY = 'dev.liveStats'
+const SHUTTER_KEY = 'camera.shutter'
+
+/** Developer option: show det/s and ms of live tracking in the camera. Off by default. */
+export const getLiveStats = () => read(STATS_KEY) === '1'
+export const setLiveStats = (on: boolean) => write(STATS_KEY, on ? '1' : '0')
+
+export type ShutterMode = 'auto' | 'manual'
+/** Auto-shutter on by default. */
+export const getShutterMode = (): ShutterMode => (read(SHUTTER_KEY) === 'manual' ? 'manual' : 'auto')
+export const setShutterMode = (m: ShutterMode) => write(SHUTTER_KEY, m)

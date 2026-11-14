@@ -18,7 +18,7 @@ import {
 import { ProgressBar, Segmented, SectionTitle, useFilePicker } from '../components/ui'
 import { importImages, importPdf, newDocument, type ImportIssue } from '../lib/document/import'
 import { formatBytes, IMAGE_ACCEPT, PDF_ACCEPT, sanitizeFileName } from '../lib/files'
-import { getLiveBench, setLiveBench, type LiveBenchModel } from '../lib/live/dev-settings'
+import { getLiveStats, setLiveStats } from '../lib/live/dev-settings'
 import { buildPdf } from '../lib/pdf/export'
 import { canShareFiles, downloadFiles, shareFiles } from '../lib/share'
 import {
@@ -542,7 +542,7 @@ function SettingsDialog({ onClose, onCleared }: { onClose: () => void; onCleared
   const dialogs = useDialogs()
   const [est, setEst] = useState<{ usage: number; quota: number } | null>(null)
   const [persisted, setPersisted] = useState<boolean | null>(null)
-  const [bench, setBench] = useState<LiveBenchModel>(getLiveBench)
+  const [liveStats, setLiveStatsState] = useState(getLiveStats)
   useEffect(() => {
     void storageEstimate().then(setEst)
     navigator.storage?.persisted?.().then(setPersisted, () => setPersisted(null))
@@ -588,15 +588,17 @@ function SettingsDialog({ onClose, onCleared }: { onClose: () => void; onCleared
           Delete all local data
         </button>
         <div className="rounded-xl bg-slate-800 p-3">
-          <SectionTitle>Developer: live detection benchmark</SectionTitle>
+          <SectionTitle>Developer: live tracking numbers</SectionTitle>
           <Segmented
-            label="Live detection benchmark"
-            value={bench}
-            onChange={(v) => (setBench(v), setLiveBench(v))}
+            label="Live tracking numbers"
+            value={liveStats ? 'on' : 'off'}
+            onChange={(v) => {
+              setLiveStatsState(v === 'on')
+              setLiveStats(v === 'on')
+            }}
             options={[
               { id: 'off', label: 'Off' },
-              { id: 'lcnet050', label: 'lcnet050' },
-              { id: 'lean', label: 'LEAN' },
+              { id: 'on', label: 'On' },
             ]}
           />
           <p className="mt-1.5 text-xs text-slate-400">Shows det/s and ms per detection in the camera preview.</p>
