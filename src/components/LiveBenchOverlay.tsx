@@ -17,6 +17,19 @@ export default function LiveBenchOverlay({ stats }: { stats: LiveStats }) {
             model {stats.inferMs.toFixed(0)} ms · total {stats.totalMs.toFixed(0)} ms
           </div>
           {stats.loadMs !== undefined && <div>load {stats.loadMs.toFixed(0)} ms</div>}
+          {stats.frame && stats.source && (
+            <div>
+              frame {stats.frame.width}×{stats.frame.height} · camera {stats.source.width}×{stats.source.height}
+            </div>
+          )}
+          <div>
+            paper {Math.round(stats.paperPx ?? 0)} / {Math.round(stats.requiredPx ?? 0)} px
+          </div>
+          {stats.color && (
+            <div>
+              rgb {stats.color.map((c) => c.toFixed(0)).join(',')} · {stats.settled ? 'settled' : 'settling'}
+            </div>
+          )}
         </>
       )}
     </div>

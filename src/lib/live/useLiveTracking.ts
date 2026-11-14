@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Corners } from '../../types'
 import type { LiveRequest, LiveResponse } from '../../workers/live.worker'
-import { Tracker, type Frame, type Hint } from './tracking'
+import { requiredPaperPx, Tracker, type Frame, type Hint, type Rgb } from './tracking'
 
 /** Long side of the frame sent to the model. */
 export const LIVE_SIDE = 256
@@ -33,6 +33,15 @@ export interface LiveStats {
   totalMs: number
   /** Current pause between detection starts, ms. */
   intervalMs: number
+  /** Live frame and full camera frame sizes. */
+  frame?: Frame
+  source?: Frame
+  /** Paper long side in camera pixels, and what Auto needs. */
+  paperPx?: number
+  requiredPx?: number
+  /** Mean preview colour and whether exposure / white balance is settled. */
+  color?: Rgb
+  settled?: boolean
 }
 
 interface Options {
@@ -141,7 +150,11 @@ export function useLiveTracking(video: React.RefObject<HTMLVideoElement | null>,
       }
 
       const frame = { width: m.width, height: m.height }
-      const out = tracker.current.update(now, m.corners, frame, auto.current)
+      const v = video.current
+      // The camera frame that a shot would capture (falls back to the live frame).
+      const source = v?.videoWidth ? { width: v.videoWidth, height: v.videoHeight } : frame
+      const out = tracker.current.update(now, m.corners, frame, { source, color: m.color, autoShot: auto.current })
+      stats.current = { ...stats.current, frame, source, paperPx: out.paperPx, requiredPx: requiredPaperPx(source), color: m.color, settled: out.settled }
       target.current = { corners: out.present ? (m.corners ?? target.current.corners) : null, frame }
       setHint(out.hint)
       setPresent(out.present)
