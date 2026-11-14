@@ -23,7 +23,7 @@ export default function LiveBenchOverlay({ stats }: { stats: LiveStats }) {
             </div>
           )}
           <div>
-            paper {Math.round(stats.paperPx ?? 0)} / {Math.round(stats.requiredPx ?? 0)} px
+            paper {Math.round(stats.paperPx ?? 0)} / {Math.round(stats.requiredPx ?? 0)} px · found {stats.found ?? 0}/{stats.total ?? 0}
           </div>
           {stats.color && (
             <div>

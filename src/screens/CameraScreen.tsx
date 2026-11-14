@@ -128,7 +128,7 @@ export default function CameraScreen({ mode, pageCount, lastThumb, onCapture, on
     if (!video || shooting || !video.videoWidth) return
     if (auto && shutter !== 'auto') return
     // Either way, the same placement must not be auto-shot again.
-    if (!auto) live.tracker.current.shot()
+    if (!auto) live.shot()
     setShooting(true)
     setFlash((f) => f + 1)
     try {
