@@ -3,12 +3,26 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import { VitePWA } from 'vite-plugin-pwa'
+import { execSync } from 'node:child_process'
 import { harnessPlugin } from './scripts/harness-plugin.ts'
 
 // GitHub Pages serves the app from https://<user>.github.io/scanner-pwa/
 const BASE = '/scanner-pwa/'
 
+/** Short commit hash shown in the settings dialog, so a phone can tell which build it runs. */
+function commitHash() {
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+  } catch {
+    return process.env.GITHUB_SHA?.slice(0, 7) ?? 'dev'
+  }
+}
+
 export default defineConfig(({ command, isPreview }) => ({
+  define: {
+    __APP_COMMIT__: JSON.stringify(commitHash()),
+    __APP_BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC'),
+  },
   // Dev server stays at / (handy for phone testing); build and preview use the Pages path.
   base: command === 'build' || isPreview ? BASE : '/',
   plugins: [

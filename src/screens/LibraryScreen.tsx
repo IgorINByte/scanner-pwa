@@ -585,6 +585,9 @@ function SettingsDialog({ onClose, onCleared }: { onClose: () => void; onCleared
           <TrashIcon />
           Delete all local data
         </button>
+        <p className="text-center text-xs text-slate-500">
+          Version {__APP_COMMIT__} · built {__APP_BUILD_DATE__}
+        </p>
       </div>
     </Modal>
   )
